@@ -33,7 +33,9 @@ Smart-Lab - 스마트랩 프로젝트 통합 레포지터리
 |구성요소|사용 기술(언어)|비고|
 |------|------|-----|
 |월패드(프론트)|Next.js(JS)|
-|월패드(백엔드)|FastAPI(Python)|
+|월패드(백엔드)|Flask(Python)|
+|Database|SQLite(예정)|
 |스마트카드|JavaCard 3.0.5(Java)|
 |서버|미정|
 |전용 앱|Flutter(Dart)|
+

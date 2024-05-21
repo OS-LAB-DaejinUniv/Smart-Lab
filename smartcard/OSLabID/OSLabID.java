@@ -2,24 +2,25 @@
 package OSLabID;
 
 import javacard.framework.*;
-import javacardx.crypto.Cipher;
+import javacardx.crypto.*;
 
 public class OSLabID extends Applet {
-    private static byte secret[] = new byte[16]; // AES-128키
+    private static byte secretRaw[] = new byte[16]; // AES-128키
+    private static AESKey key = null;
     private static byte name[] = new byte[8]; // 이름(utf-8, 최대 4자)
     private static byte stdNo[] = new byte[8]; // 학번(utf-8)
     private static byte uuid[] = new byte[16]; // UUID
 
     public OSLabID(byte[] bArray, short bOffset, byte bLength) {
         byte iLen = bArray[bOffset]; // aid length
-        bOffset = (short) (bOffset + iLen + 1);
+        bOffset = (short) (bOffset + iLen + 1); // AID 시작오프셋
 
         byte cLen = bArray[bOffset]; // info length
         bOffset = (short) (bOffset + cLen + 1);
 
         byte aLen = bArray[bOffset]; // applet data length
 
-        Util.arrayCopy(tmp, (short) 0, this.stdNo, (short) 0, (short) 1); // 학번
+        Util.arrayCopy(bArray, (short) 0, this.stdNo, (short) 0, (short) 1); // 학번
 
         register(); // OS에 생성된 인스턴스 등록
     }
@@ -45,6 +46,7 @@ public class OSLabID extends Applet {
         r.generateData(result, (short) 0, (short) result.length); // 난수 생성
 
         Util.arrayCopy(result, (short) 0, buffer, (short) 0, (short) result.length); // 결과 복사
+        apdu.setOutgoingAndSend((short) 0, (short) result.length);
     }
 
     public void process(APDU apdu) throws ISOException {

@@ -19,7 +19,7 @@ public class OSLabID extends Applet {
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
-        byte aidLength =      bArray[bOffset];
+        byte aidLength = bArray[bOffset];
         short controlLength = (short) (bArray[(short) (bOffset + 1 + (short) aidLength)] & (short) 0x00FF);
         short dataLength =    (short) (bArray[(short) (bOffset + 1 + aidLength + 1 + controlLength)] & (short) 0x00FF);
 
@@ -36,9 +36,9 @@ public class OSLabID extends Applet {
 //        Util.arrayCopy(result, (short) 0, buffer, (short) 0, (short) result.length); // 결과 복사
     }
 
-    private void getRandom(APDU apdu) {
+    private void getRandom(APDU apdu, short size) {
         byte buffer[] = apdu.getBuffer(); // 버퍼 객체 얻기
-        byte result[] = JCSystem.makeTransientByteArray((short) 16, JCSystem.CLEAR_ON_DESELECT); // 임시 버퍼 생성, 16바이트, 선택 해제시 초기화
+        byte result[] = JCSystem.makeTransientByteArray(size, JCSystem.CLEAR_ON_DESELECT); // 임시 버퍼 생성, 16바이트, 선택 해제시 초기화
         RandomData r = RandomData.getInstance(RandomData.ALG_TRNG); // RandomData 인스턴스 생성
         r.generateData(result, (short) 0, (short) result.length); // 난수 생성
 
@@ -62,7 +62,7 @@ public class OSLabID extends Applet {
                 break;
 
             case (byte) 0x0C:
-                getRandom(apdu); // 난수 생성
+                getRandom(apdu, (short) 16); // 난수 생성
                 break;
 
             default:

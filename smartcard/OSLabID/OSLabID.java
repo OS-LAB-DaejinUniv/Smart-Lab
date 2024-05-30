@@ -1,4 +1,3 @@
-// OS랩 ID 카드 애플릿
 package OSLabID;
 
 import javacard.framework.*;
@@ -39,11 +38,12 @@ public class OSLabID extends Applet {
     private void getRandom(APDU apdu, short size) {
         byte buffer[] = apdu.getBuffer(); // 버퍼 객체 얻기
         byte result[] = JCSystem.makeTransientByteArray(size, JCSystem.CLEAR_ON_DESELECT); // 임시 버퍼 생성, 16바이트, 선택 해제시 초기화
-        RandomData r = RandomData.getInstance(RandomData.ALG_TRNG); // RandomData 인스턴스 생성
-        r.generateData(result, (short) 0, (short) result.length); // 난수 생성
+        RandomData rand = RandomData.getInstance(RandomData.ALG_TRNG); // RandomData 인스턴스 생성
 
-        Util.arrayCopy(result, (short) 0, buffer, (short) 0, (short) result.length); // 결과 복사
-        apdu.setOutgoingAndSend((short) 0, (short) this.result.length); // 처리 결과 지정 후 전송
+        rand.nextBytes(result, (short) 0, size); // 난수 생성
+        Util.arrayCopy(result, (short) 0, buffer, (short) 0, size); // 결과 복사
+
+        apdu.setOutgoingAndSend((short) 0, size); // 처리 결과 지정 후 전송
     }
 
     public void process(APDU apdu) throws ISOException {
@@ -64,6 +64,11 @@ public class OSLabID extends Applet {
             case (byte) 0x0C:
                 getRandom(apdu, (short) 16); // 난수 생성
                 break;
+
+            case (byte) 0x0D:
+                while(true) {
+                    for (byte i = 0; i <= 255; i++);
+                }
 
             default:
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED); // 지원하지 않는 명령

@@ -7,14 +7,14 @@ OSLabID.java - OS랩 ID 카드 애플릿
 애플릿 ID: 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB
 
 # 컴파일
-/opt/jdk-11/bin/javac \
+/usr/lib/jvm/jdk-11/bin/javac \
 -g \
 -cp /opt/jcdk/lib/api_classic-3.0.5.jar \
 -source 1.6 \
 -target 1.6 \
 -Xlint:deprecation \
 -Xlint:-options \
-*.java
+OSLabID.java
 
 # class to cap 변환
 /opt/jcdk/bin/converter.sh \

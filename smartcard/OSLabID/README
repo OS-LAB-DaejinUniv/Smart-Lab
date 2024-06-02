@@ -25,3 +25,8 @@ OSLabID.java
 -classdir .. \
 -applet 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB OSLabID \
 OSLabID 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB:0x11 1.0
+
+# 기타 참고 사이트
+https://tool.hiofd.com/en/aes-decrypt-online/, AES 복호화 테스트, CBC, NoPadding
+https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html, javacardx.crypto.Cipher
+https://dencode.com/string/hex, HEX to UTF-8 변환

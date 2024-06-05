@@ -23,14 +23,12 @@ public class OSLabID extends Applet {
     /* 명령 정의 */
     private static final byte CLA_OSLABID           = (byte) 0x54; // 공통 CLA 바이트
     private static final byte INS_AUTH_FROM_WALLPAD = (byte) 0xAA; // 월패드 -> 카드 인증 시도(Client Authentication)
-    private static final byte INS_AUTH_FROM_CARD    = (byte) 0xA1; // 카드 -> 월패드 인증 시드(Server Authentication)
+    private static final byte INS_GET_CHG_OF_CARD   = (byte) 0xA1; // 카드 -> 월패드 인증 시드(Server Authentication)
     private static final byte INS_APPEND_LOG        = (byte) 0xCC; // 카드에 로그 기록
     private static final byte INS_READ_LOG          = (byte) 0xC1; // 로그 읽기
     private static final byte INS_GET_CARD_INFO     = (byte) 0xDD; // 카드 정보 요청
     private static final byte INS_GET_EXTRA_INFO    = (byte) 0xEE; // 부가정보 요청
-    private static final byte INS_GET_EXTRA_INFO    = (byte) 0xE1; // 부가정보 쓰기
-
-
+    private static final byte INS_UPDATE_EXTRA_INFO = (byte) 0xE1; // 부가정보 쓰기
 
     /* 변수 */
     private static byte[] secret = new byte[16]; // AES-128 키 원본
@@ -43,15 +41,14 @@ public class OSLabID extends Applet {
     private static byte[]  tmp; // 임시 버퍼
 
     /* 상수 */
-    private static final short LEN_INSTALL_PARAM = (byte) 56; // 설치 파라미터 길이
-    private static final short CHALLENGE_LEN = (byte) 16;
-    private static final short RESPONSE_LEN = (byte) 48;
+    private static final short LEN_INSTALL_PARAM = (byte) 48; // 설치 파라미터의 길이
+    private static final short CHALLENGE_LEN = (byte) 16; // 카드 및 서버의 challenge 길이
 
     /* 객체 변수 */
-    private AESKey      aesKey;  // AES-128 키 객체
-    private RandomData  rand;    // 난수 생성 객체
-    private Cipher      encrypt; // chiper 객체, 암호화 모드
-    private Cipher      decrypt; // chiper 객체, 복호화 모드
+    private AESKey     aesKey;  // AES-128 키 객체
+    private RandomData rand;    // 난수 생성 객체
+    private Cipher     encrypt; // chiper 객체, 암호화 모드
+    private Cipher     decrypt; // chiper 객체, 복호화 모드
 
     private OSLabID(byte[] bArray, short bOffset, byte bLength) {
         // 설치 파라미터 처리
@@ -76,7 +73,7 @@ public class OSLabID extends Applet {
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
-        if (bLength < (byte) 48) {
+        if (bLength < LEN_INSTALL_PARAM) {
             // 설치 파라미터의 길이는 비밀키(16) + 이름(16) + 학번(16) = 48
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
@@ -106,16 +103,25 @@ public class OSLabID extends Applet {
         resPos += 16;
         encrypt.doFinal(this.extra, (short) 0, (short) 16, buf, resPos); // 부가정보 암호화
 
-        apdu.setOutgoingAndSend((short) 0, RESPONSE_LEN); // 응답
+        apdu.setOutgoingAndSend((short) 0, (short) 48); // 응답
+    }
+
+    private void generateChallenge(APDU apdu) throws ISOException {
+        byte[] buf = apdu.getBuffer();
+
+        rand.generateData(tmp, (short) 0, CHALLENGE_LEN); // 카드에서 챌린지 생성하여 tmp에 보관
+        Util.arrayCopy(tmp, (short) 0, buf, (short) 0, CHALLENGE_LEN); // tmp를 apdu 버퍼에 복사
+
+        apdu.setOutgoingAndSend((short) 0, (short) 16); // 응답
     }
 
     private void getCardInfo(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-        short totalLen = (byte) (this.uuid.length + this.name.length + this.stdNo.length);
+        short totalLen = (byte) (uuid.length + name.length + stdNo.length);
 
-        Util.arrayCopy(this.uuid, (short) 0, buffer, (short) 0, (short) this.uuid.length);
-        Util.arrayCopy(this.name, (short) 0, buffer, (short) this.uuid.length, (short) this.name.length);
-        Util.arrayCopy(this.stdNo, (short) 0, buffer, (short) (this.name.length + this.stdNo.length), (short) this.uuid.length);
+        Util.arrayCopy(uuid, (short) 0, buffer, (short) 0, (short) uuid.length);
+        Util.arrayCopy(name, (short) 0, buffer, (short) uuid.length, (short) name.length);
+        Util.arrayCopy(stdNo, (short) 0, buffer, (short) (name.length + stdNo.length), (short) uuid.length);
 
         apdu.setOutgoingAndSend((short) 0, totalLen);
     }
@@ -138,6 +144,10 @@ public class OSLabID extends Applet {
 
                 case INS_AUTH_FROM_WALLPAD:
                     authReqFromWallpad(apdu); // 월패드에서 카드 인증
+                    break;
+
+                case INS_GET_CHG_OF_CARD:
+                    generateChallenge(apdu); // 카드에서 월패드 인증
                     break;
 
                 default:

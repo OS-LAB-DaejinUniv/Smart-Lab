@@ -24,13 +24,13 @@ public class OSLabID extends Applet implements ExtendedLength {
     /* 명령 정의 */
     private static final byte CLA_OSLABID           = (byte) 0x54; // 공통 CLA 바이트
 
-    private static final byte INS_AUTH_FROM_WALLPAD = (byte) 0xAA; // 월패드 -> 카드 인증 시도(Client Authentication)
+    private static final byte INS_AUTH_FROM_SERVER  = (byte) 0xAA; // 월패드 -> 카드 인증 시도(Client Authentication)
     private static final byte INS_GET_CHG_OF_CARD   = (byte) 0xA1; // 카드 -> 서버 챌린지 생성 및 전송
     private static final byte INS_AUTH_SERVER       = (byte) 0xA2; // 카드 -> 서버 인증(Server Authentication)
 
     private static final byte INS_GET_LOG           = (byte) 0xC1; // 사용내역 읽기
     private static final byte INS_GET_CARD_INFO     = (byte) 0xDD; // 카드 정보 요청
-    private static final byte INS_UPDATE_EXTRA      = (byte) 0xEE; // 부가정보 쓰기
+    private static final byte INS_UPDATE_EXTRA      = (byte) 0xEE; // 부가정보 갱신
 
     private static final byte P1_ADD_LOG            = (byte) 0xCC; // 카드에 사용내역 기록
 
@@ -45,6 +45,7 @@ public class OSLabID extends Applet implements ExtendedLength {
     private static short  nextLogPos = 1; // 서용내역이 기록될 logs 배열의 인덱스, 별도 인덱스 계산 없이 바로 사용
     private static byte[] generatedChallenge; // 서버 인증을 위해 생성된 챌린지를 임시 저장
     private static byte[] decryptedResponse; // 복호화한 서버의 리스폰스를 임시 저장
+    private static byte[] isChallengeGenerated;
 
     /* 상수 */
     private static final short LEN_INSTALL_PARAM = 48; // 설치 파라미터의 길이
@@ -82,6 +83,7 @@ public class OSLabID extends Applet implements ExtendedLength {
          */
         generatedChallenge = JCSystem.makeTransientByteArray((short) 16, JCSystem.CLEAR_ON_DESELECT);
         decryptedResponse = JCSystem.makeTransientByteArray((short) 32, JCSystem.CLEAR_ON_DESELECT);
+        isChallengeGenerated = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_DESELECT);
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
@@ -124,6 +126,8 @@ public class OSLabID extends Applet implements ExtendedLength {
         rand.nextBytes(generatedChallenge, (short) 0, CHALLENGE_LEN); // 카드에서 챌린지 생성
         Util.arrayCopy(generatedChallenge, (short) 0, buf, (short) 0, (short) CHALLENGE_LEN); // 챌린지를 apdu 버퍼에 복사
 
+        isChallengeGenerated[0] = (byte) 0x01;
+
         apdu.setOutgoingAndSend((short) 0, (short) 16); // 전송
     }
 
@@ -131,26 +135,38 @@ public class OSLabID extends Applet implements ExtendedLength {
         byte[] buf = apdu.getBuffer();
         short decryptTotal = 32;
 
-        // 데이터의 길이: (response + 명령데이터) != 32인 경우 오류 발생
+        // 챌린지가 생성된 상태가 아닌 경우 오류 발생
+        if (isChallengeGenerated[0] != (byte) 0x01) {
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+
+        // 데이터의 길이가 32(response + 명령데이터)가 아닌 경우 오류 발생
         if (buf[ISO7816.OFFSET_LC] != (byte) decryptTotal) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
+        // response 검증 시작
         decrypt.init(aesKey, Cipher.MODE_DECRYPT); // 복호화 모드
+
         // 서버의 response를 복호화하여 decryptedResponse에 저장
         decrypt.doFinal(buf, ISO7816.OFFSET_CDATA, decryptTotal, decryptedResponse, (short) 0);
-        // challenge와 복호화된 response 비교(인덱스 0~15)
+
+        // challenge와 복호화된 response 비교, 인덱스 0~15
         for (byte i = 0; i < 16; i++) {
             if (decryptedResponse[i] != generatedChallenge[i]) {
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             }
         }
 
+        // 명령 처리 시작
         switch (buf[ISO7816.OFFSET_P1]) { // 리스폰스 검증 완료된 경우 P1으로 분기
             case P1_ADD_LOG:
                 addCardLog(); // 서버로부터 전달받은 사용내역 추가
                 break;
         }
+
+        // 명령 처리 완료 후 생성된 챌린지 폐기
+        isChallengeGenerated[0] = (byte) 0x00;
     }
 
     private void getCardInfo(APDU apdu) {
@@ -175,8 +191,8 @@ public class OSLabID extends Applet implements ExtendedLength {
     private void getCardLog(APDU apdu) {
         byte[] buf = apdu.getBuffer();
 
-        Util.arrayCopy(logs, (short) 0, buf, (short) 0, (short) logs.length);
-        apdu.setOutgoingAndSend((short) 0, (short) logs.length);
+        Util.arrayCopy(logs, (short) 1, buf, (short) 0, (short) (logs.length - 1));
+        apdu.setOutgoingAndSend((short) 0, (short) (logs.length - 1));
     }
 
     private void addCardLog() {
@@ -191,7 +207,16 @@ public class OSLabID extends Applet implements ExtendedLength {
             // 그렇지 않으면 단건 로그의 크기만큼 인덱스 증가
             nextLogPos += LOG_SIZE;
         }
+    }
 
+    private void updateExtras(APDU apdu) throws ISOException {
+        byte[] buf = apdu.getBuffer();
+
+        if (buf[ISO7816.OFFSET_LC] != (byte) 16) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        Util.arrayCopy(buf, ISO7816.OFFSET_CDATA, extra, (short) 0, (short) 16);
     }
 
     public void process(APDU apdu) throws ISOException {
@@ -210,7 +235,7 @@ public class OSLabID extends Applet implements ExtendedLength {
                     getCardInfo(apdu); // 카드정보 읽기(UUID, 이름, 학번, 부가정보)
                     break;
 
-                case INS_AUTH_FROM_WALLPAD:
+                case INS_AUTH_FROM_SERVER:
                     authReqFromServer(apdu); // Client Authentication
                     break;
 
@@ -227,7 +252,7 @@ public class OSLabID extends Applet implements ExtendedLength {
                     break;
 
                 case INS_UPDATE_EXTRA: // 부가정보 갱신
-                    //
+                    updateExtras(apdu);
                     break;
 
                 default:
@@ -236,6 +261,9 @@ public class OSLabID extends Applet implements ExtendedLength {
 
         } catch (CryptoException ce) {
             ISOException.throwIt(ce.getReason());
+
+        } catch (ISOException ie) {
+            ISOException.throwIt(ie.getReason());
 
         } catch (Exception e) {
             ISOException.throwIt(ISO7816.SW_UNKNOWN);

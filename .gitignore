@@ -134,9 +134,8 @@ dist
 **/.DS_Store
 **/._.DS_Store
 
-.cap
-.exp
-.jca
-.class
-javacard/
-smartcard/OSLabID/OSLabID.class
+*.exp
+*.jca
+*.class
+.idea/
+*.iml

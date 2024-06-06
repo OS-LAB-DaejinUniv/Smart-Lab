@@ -50,7 +50,6 @@ public class OSLabID extends Applet implements ExtendedLength {
     private static final short LEN_INSTALL_PARAM = 48; // 설치 파라미터의 길이
     private static final short CHALLENGE_LEN = 16; // 카드 및 서버의 challenge 길이
     private static final short LOG_SIZE = 5;
-    private static final short LOG_SIZE_PER_PAGE = LOG_SIZE * 20; // 사용내역 1페이지의 길이
 
     /* 객체 변수 */
     private AESKey     aesKey;  // AES-128 키 객체
@@ -173,17 +172,11 @@ public class OSLabID extends Applet implements ExtendedLength {
         apdu.setOutgoingAndSend((short) 0, totalLen);
     }
 
-    private void getCardLog(APDU apdu) throws ISOException {
+    private void getCardLog(APDU apdu) {
         byte[] buf = apdu.getBuffer();
-        byte page = buf[ISO7816.OFFSET_P1];
-        short startAt = 0;
 
-        // 불러올 사용내역 페이지의 인덱스 결정
-        // 페이지 값에 해당하는 시작, 끝 인덱스 결정
-        startAt = (short) ((page * LOG_SIZE_PER_PAGE) + 1);
-
-        Util.arrayCopy(logs, startAt, buf, (short) 0, LOG_SIZE_PER_PAGE);
-        apdu.setOutgoingAndSend((short) 0, LOG_SIZE_PER_PAGE);
+        Util.arrayCopy(logs, (short) 0, buf, (short) 0, (short) logs.length);
+        apdu.setOutgoingAndSend((short) 0, (short) logs.length);
     }
 
     private void addCardLog() {
@@ -191,7 +184,7 @@ public class OSLabID extends Applet implements ExtendedLength {
         Util.arrayCopy(decryptedResponse, CHALLENGE_LEN, logs, nextLogPos, LOG_SIZE);
 
         // 사용내역 배열이 꽉 찬 경우 다음번부터 맨 앞부터 덮어쓰기
-        if (nextLogPos == (short) ((short) logs.length - LOG_SIZE)) {
+        if (nextLogPos == ((short) ((short) logs.length - LOG_SIZE))) {
             nextLogPos = (short) 1;
 
         } else {

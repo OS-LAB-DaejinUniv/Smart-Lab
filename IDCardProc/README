@@ -7,3 +7,7 @@ IDCardProc.ino - 카드 인식 처리 모듈
 
 # 상태
 개발 중
+
+# 사용 라이브러리
+1. CryptoAES_CBC(https://github.com/Obsttube/CryptoAES_CBC)
+2. Adafruit-PN532(https://github.com/adafruit/Adafruit-PN532

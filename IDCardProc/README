@@ -10,7 +10,8 @@ v1.0a (추가 개선 필요)
 
 # 작동 과정
 카드 인식 -> AUTHED_<인증된 카드의 카드정보, 48바이트> -> 호스트의 로그 데이터 수신(5바이트) -> OK(로그 기록 완료시)
-          -> NOT_OSID(올바른 카드가 아닌 경우                                                -> SVRAUTH_ERROR(서버 인증 및 사용내역 저장 오류)
+                     OR                                                             OR
+        -> NOT_OSID(올바른 카드가 아닌 경우                                      -> SVRAUTH_ERROR(서버 인증 및 사용내역 저장 오류시)
 
 # 발생하는 오류
 1. SVRAUTH_ERROR: Server Authentication을 위한 APDU 전송 중 오류

@@ -134,6 +134,7 @@ dist
 **/.DS_Store
 **/._.DS_Store
 
+# javacard related
 *.exp
 *.jca
 *.class

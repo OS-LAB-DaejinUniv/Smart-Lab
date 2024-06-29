@@ -24,6 +24,14 @@ v1.0a (추가 개선 필요)
 # 상태 메시지
 1. '.': 정상적으로 카드 인식을 대기중인 경우
 
+# 스마트카드에 기록되는 로그의 포맷
+XX XX XX XX YY
+X: 32바이트 유닉스 타임
+Y: 카드 사용내역의 타입
+
+0x01: 출근
+0x02: 퇴근
+
 # 사용 라이브러리
 1. CryptoAES_CBC(https://github.com/Obsttube/CryptoAES_CBC)
 2. Adafruit-PN532(https://github.com/adafruit/Adafruit-PN532

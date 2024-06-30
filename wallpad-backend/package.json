@@ -1,0 +1,17 @@
+{
+  "name": "oslab-wallpad-be",
+  "version": "1.0.0",
+  "description": "oslab wallpad backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jay Kang",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-aplay": "^1.0.3",
+    "serialport": "^12.0.0",
+    "socket.io": "^4.7.5"
+  }
+}

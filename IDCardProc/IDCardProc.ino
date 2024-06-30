@@ -12,7 +12,7 @@
 
 #define LEN_CLIENT_AUTH_RESPONSE (48)
 #define LEN_SERVER_AUTH_PAYLOAD  (32)
-#define RECOGNIZE_THRESHOLD      (1500)
+#define RECOGNIZE_THRESHOLD      (1100)
 
 // #define DEBUG
 
@@ -32,7 +32,7 @@ char SW1SW2_OK[2] = {0x90, 0x00};
 
 void setup() {
   Serial.begin(115200);
-  Serial.setTimeout(5000);
+  Serial.setTimeout(3000);
   #ifdef DEBUG
     Serial.setTimeout(5000);
   #endif
@@ -95,9 +95,8 @@ void loop(void) {
     bool selected = nfc.inDataExchange(SELECT, sizeof(SELECT), select_buf, &len_select_buf);
 
     // SELECT 명령의 응답이 돌아오면
-    if (selected) {      
+    if (selected) { // 연구실 ID 애플릿이 설치되어 있음이 확인됨
       if (select_buf[0] == 0x90 && select_buf[1] == 0x00) { // 응답이 90 00(OK)인지 확인
-        Serial.print("!"); // 연구실 ID 애플릿이 설치되어 있음이 확인됨
         uint8_t resp_buf[128] = {0}; // 수신 버퍼를 0으로 초기화
         uint8_t len_resp_buf = sizeof(resp_buf);
 
@@ -216,7 +215,6 @@ void loop(void) {
 
   } else if(detected && sameCard) {
     beforeMillis = millis();
-    Serial.print(".");
 
   } else {
     Serial.print(".");

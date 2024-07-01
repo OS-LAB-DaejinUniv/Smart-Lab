@@ -3,26 +3,18 @@
 import Image from 'next/image'
 import React, { useState, useRef, useEffect } from 'react'
 import Profile from './components/Profile'
+import NotifyWindow from './components/NotifyWindow'
 import io from 'socket.io-client'
 
 export default function Home() {
   const audioRef = useRef();
   const audioSourceRef = useRef();
-  const transitionRate = 7000;
+  const transitionRate = 8000;
   let socket;
 
   const adPagesMax = 2;
   let [currentAdPage, setCurrentAdPage] = useState(1);
 
-  const playSFX = (name) => {
-    switch (name) {
-      case 'success':
-        audioSourceRef.current.src = '/success.wav';
-        audioRef.current.play();
-        break;
-    }
-  }
-  playSFX(true);
   /* socket.io setup */
   useEffect(() => {
     socket = io('http://localhost:5000', {
@@ -32,9 +24,22 @@ export default function Home() {
       }
     });
 
-    socket.on('authed', (data) => {
-      alert('인증된 사용자' + data.user);
-      playSFX('success');
+    socket.on('success', (data) => {
+      console.info('인증된 사용자' + data.user);
+    });
+
+    socket.on('error', (err) => {
+      switch (err.why) {
+        case 'unsupported':
+          console.error('지원하지 않는 카드입니다.');
+          break;
+        case 'invalidCrypto':
+          console.error('스마트카드가 올바르게 발급되지 않았습니다. 부원인 경우 관리자에게 문의하세요.');
+          break;
+        case 'RFDrop':
+          console.error('카드를 다시 대주세요.');
+          break;
+      }
     });
 
     return () => {
@@ -74,6 +79,7 @@ export default function Home() {
 
   return (
     <>
+    {/* <NotifyWindow/> */}
       <main className='flex flex-col p-9 justify-between h-screen bg-white rounded-2xl'>
         <section>
           {/* 로고, 날짜, 시간 + 연구실 소식 섹션 */}

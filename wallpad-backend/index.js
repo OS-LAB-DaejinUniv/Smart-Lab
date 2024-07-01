@@ -57,7 +57,7 @@ arduino.on('data', (data) => {
 			return;
 		}
 
-		// trying to match meaningful data from serial buffer.
+		// trying to find meaningful data from serial buffer.
 		const authed = (() => {
 			const match = authedUser.exec(buffer) || '';
 			return match.toString().substring('AUTHED_'.length);
@@ -88,11 +88,11 @@ arduino.on('data', (data) => {
 
 			arduino.write(newLog);
 
-			// will be used on "else if (ok)" as receives 'OK' from arduino.
+			// will be used on "else if (ok)" as it receives 'OK' from arduino.
 			now = { uuid: uuid, type: processType, history: newLog, extra: extra };
 
 		} else if (ok) {
-			// read personal preferences settings on smartcard
+			// read personal preferences settings on smartcard.
 			const userPref = {
 				lightOnAtFirst: null,
 				lightOffWhenLeave: null,
@@ -107,7 +107,7 @@ arduino.on('data', (data) => {
 			console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]} → ${now.uuid} (${toHexString(now.history)})`);
 			console.log(`<스마트카드 개인 설정>\n첫 출근시 전등 켜기: ${userPref.lightOnAtFirst}\n마지막 퇴근시 전등 끄기: ${userPref.lightOffWhenLeave}\n첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
 
-			// send final result over socket.io
+			// send final result through socket.io
 			io.emit('success', now);
 			now = null;
 
@@ -115,13 +115,13 @@ arduino.on('data', (data) => {
 
 		} else if (unsupported) {
 			console.log('Unsupported card.');
-			io.emit('error', { why: 'unsupportedCard' });
+			io.emit('error', { why: 'unsupported' });
 
 			playSFX(false);
 
 		} else if (cryptoFailed) {
 			console.log('Cryptogram mismatched.');
-			io.emit('error', { why: 'invalidCryptogram' });
+			io.emit('error', { why: 'invalidCrypto' });
 
 			playSFX(false);
 

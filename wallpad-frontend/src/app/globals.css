@@ -55,33 +55,27 @@ table {
 	border-collapse: collapse;
 	border-spacing: 0;
 }
-
 img {
 	object-fit: contain;
 }
-
 .animation-pulse {
 	animation: pulse-keyframe 2.9s infinite;
 }
-
 .project {
     display: flex;
     justify-content: center;
     width: auto;
     padding: 5rem;
 }
-
 .project .carousel {
     background: coral;
     width: 500px;
     height: 500px;
     overflow: hidden;
 }
-
 .project .carousel .carouselBox {
     display: flex;
 }
-
 .project .carousel .carouselBox .carouselItem {
     width: 500px;
     height: 500px;
@@ -90,8 +84,6 @@ img {
     background-repeat: no-repeat;
     flex: none;
 }
-
-
 @keyframes pulse-keyframe {
 	from {
 		animation-timing-function: ease-in-out;
@@ -102,4 +94,9 @@ img {
 		transform: scale(11.5);
 		opacity: 0;
 	}	
+}
+.notify-window {
+	left: 50%;
+	top: 4%;
+	transform: translate(-50%);
 }

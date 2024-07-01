@@ -35,7 +35,7 @@ Project SmartLab
 > 스마트카드를 휴대폰에 태그하여 웹에서 2FA 인증을 할 수 있는 기능을 제공합니다.
 <br>
 
-📌 사용 예정(중인) 기술
+📌 적용한 기술
 ---
 
 |Component|Used tech.(language)|Directory|

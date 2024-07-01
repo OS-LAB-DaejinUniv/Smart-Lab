@@ -9,6 +9,7 @@ import io from 'socket.io-client'
 export default function Home() {
   const audioRef = useRef();
   const audioSourceRef = useRef();
+  const [notifyStatus, setNotifyStatus] = useState({});
   const transitionRate = 8000;
   let socket;
 
@@ -25,7 +26,9 @@ export default function Home() {
     });
 
     socket.on('success', (data) => {
-      console.info('인증된 사용자' + data.user);
+      console.log('인증된 사용자: ');
+      console.table(data);
+      setNotifyStatus(data);
     });
 
     socket.on('error', (err) => {
@@ -74,12 +77,20 @@ export default function Home() {
   // 현재 날짜 가져오기
   const today = new Date();
   const weekDay = ['일', '월', '화', '수', '목', '금', '토', '일'];
-  const formattedDate = `${today.getFullYear()}. ${today.getMonth()}. ${today.getDate()}. (${weekDay[today.getDay()]
+  const formattedDate = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}. (${weekDay[today.getDay()]
     })`
 
   return (
     <>
-    {/* <NotifyWindow/> */}
+    {(() => {
+      if ('uuid' in notifyStatus)
+        return (
+          <NotifyWindow
+            type={'arrival'}
+            name={notifyStatus.uuid}
+          />
+      );
+    })()}
       <main className='flex flex-col p-9 justify-between h-screen bg-white rounded-2xl'>
         <section>
           {/* 로고, 날짜, 시간 + 연구실 소식 섹션 */}
@@ -183,7 +194,7 @@ export default function Home() {
         <footer>
           <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
             <div className='flex justify-center items-center rounded-full w-[2rem] h-[2rem] animation-pulse bg-[#3081F5]' />
-            <p className='absolute font-medium align-center'>
+            <p className='absolute font-medium align-center tracking-tight'>
               {`이곳에 ID 카드를 대주세요`}
             </p>
           </div>

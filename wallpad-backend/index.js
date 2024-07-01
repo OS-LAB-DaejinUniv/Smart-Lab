@@ -16,9 +16,9 @@ const io = new Server(server, {
 });
 
 let buffer = '';
-let now = null; // 사용내역 기록 완료 응답을 받기 전 인증된 사용자 정보를 임시 보관
+let now = null; // 아두이노로부터 사용내역 기록 완료 응답을 받기 전 인증된 사용자 정보를 임시 보관
 
-// 각 사용내역 타입에 대한 설명 문자열
+// 각 사용내역 타입에 대한 설명
 const logType = {
 	'01': '출근',
 	'02': '퇴근'
@@ -105,7 +105,7 @@ arduino.on('data', (data) => {
 			});
 
 			console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]} → ${now.uuid} (${toHexString(now.history)})`);
-			console.log(`<스마트카드 개인 설정>\n첫 출근시 전등 켜기: ${userPref.lightOnAtFirst}\n마지막 퇴근시 전등 끄기: ${userPref.lightOffWhenLeave}\n첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
+			console.log(`<스마트카드 개인 설정>\n  첫 출근시 전등 켜기: ${userPref.lightOnAtFirst}\n  마지막 퇴근시 전등 끄기: ${userPref.lightOffWhenLeave}\n  첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n  마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
 
 			// send final result through socket.io
 			io.emit('success', now);

@@ -95,8 +95,23 @@ img {
 		opacity: 0;
 	}	
 }
-.notify-window {
+
+@keyframes notify-show {
+	from {
+		top: -2%;
+		opacity: 0.2;
+	}
+	to {
+		top: 2%;
+		opacity: 1;
+	}
+}
+.notify-background {
+	
+}
+.notify-content {
+	animation: notify-show 0.15s;
+	top: 2%;
 	left: 50%;
-	top: 4%;
 	transform: translate(-50%);
 }

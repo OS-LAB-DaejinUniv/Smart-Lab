@@ -26,10 +26,10 @@ const Profile = ({ name, position, status, emoji, isDisabled = false }) => {
         <div className='flex flex-col'>
           <div className='flex items-end'>
             <p className='text-xl font-bold leading-[1.3]'>{ name }</p>
-            <p className='text-sm ml-1.5'>{ position }</p>
+            <p className='text-sm ml-1'>{ position }</p>
           </div>
           <p
-            className='text-sm'
+            className='text-sm leading-[1.4]'
           >{ status }</p>
         </div>
         <p

@@ -96,22 +96,9 @@ img {
 	}	
 }
 
-@keyframes notify-show {
-	from {
-		top: -2%;
-		opacity: 0.2;
-	}
-	to {
-		top: 2%;
-		opacity: 1;
-	}
-}
-.notify-background {
-	
-}
+.notify-background {}
 .notify-content {
-	animation: notify-show 0.15s;
-	top: 2%;
+	top: 3%;
 	left: 50%;
 	transform: translate(-50%);
 }

@@ -26,8 +26,7 @@ export default function Home() {
     });
 
     socket.on('success', (data) => {
-      console.log('인증된 사용자: ');
-      console.table(data);
+      console.log(`[SCEvent] eventFired: ${data.eventFired}, name: ${data.name}, status: ${data.status}`);
       setNotifyStatus(data);
     });
 
@@ -83,11 +82,12 @@ export default function Home() {
   return (
     <>
     {(() => {
-      if ('uuid' in notifyStatus)
+      if (notifyStatus.eventFired)
+        // 카드 이벤트 알림창 띄우기
         return (
           <NotifyWindow
-            type={'arrival'}
-            name={notifyStatus.uuid}
+            type={notifyStatus.status}
+            name={notifyStatus.name}
           />
       );
     })()}

@@ -29,14 +29,28 @@ export default function Home() {
       console.log(`[SCEvent] eventFired: ${data.eventFired}, name: ${data.name}, status: ${data.status}`);
 
       setNotifyStatus(data);
-      notifyStatus.leftTimeUntilHide = 5000;
+
+      // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
+    setTimeout(() => {
+      setNotifyStatus(prevStatus => ({
+        ...prevStatus,
+        eventFired: false // 팝업을 닫음
+      }));
+    }, 3000);
     });
 
     socket.on('error', (error) => {
       console.error(`[SCEvent] eventFired: ${error.eventFired}, name: ${error.name}, status: ${error.status}`);
 
       setNotifyStatus(error);
-      notifyStatus.leftTimeUntilHide = 5000;
+      
+      // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
+    setTimeout(() => {
+      setNotifyStatus(prevStatus => ({
+        ...prevStatus,
+        eventFired: false // 팝업을 닫음
+      }));
+    }, 3000);
     });
 
     return () => {

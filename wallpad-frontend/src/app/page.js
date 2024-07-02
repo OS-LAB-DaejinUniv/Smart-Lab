@@ -27,26 +27,16 @@ export default function Home() {
 
     socket.on('success', (data) => {
       console.log(`[SCEvent] eventFired: ${data.eventFired}, name: ${data.name}, status: ${data.status}`);
+
       setNotifyStatus(data);
       notifyStatus.leftTimeUntilHide = 5000;
     });
 
     socket.on('error', (error) => {
-      switch (error.status) {
-        case 'unsupported':
-          console.error('지원하지 않는 카드입니다.');
-          break;
+      console.error(`[SCEvent] eventFired: ${error.eventFired}, name: ${error.name}, status: ${error.status}`);
 
-        case 'invalidCrypto':
-          console.error('스마트카드가 올바르게 발급되지 않았습니다. 부원인 경우 관리자에게 문의하세요.');
-          break;
-
-        case 'RFDrop':
-          console.error('카드를 다시 대주세요.');
-          break;
-        }
-
-        setNotifyStatus(error);
+      setNotifyStatus(error);
+      notifyStatus.leftTimeUntilHide = 5000;
     });
 
     return () => {

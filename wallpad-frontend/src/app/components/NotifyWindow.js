@@ -1,9 +1,8 @@
 /*
 알림 컴포넌트
 파라미터 설명
-type:        알림의 종류('success' or 'error')
-title:       알림창 제목
-content:     본문 내용
+type:        알림의 종류
+name:        이름(본문에서 필요한 경우에만 전달)
 */
 const NotifyWindow = ({ type, name }) => {
   const title = {

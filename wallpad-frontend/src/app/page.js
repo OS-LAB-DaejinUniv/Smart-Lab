@@ -28,20 +28,25 @@ export default function Home() {
     socket.on('success', (data) => {
       console.log(`[SCEvent] eventFired: ${data.eventFired}, name: ${data.name}, status: ${data.status}`);
       setNotifyStatus(data);
+      notifyStatus.leftTimeUntilHide = 5000;
     });
 
-    socket.on('error', (err) => {
-      switch (err.why) {
+    socket.on('error', (error) => {
+      switch (error.status) {
         case 'unsupported':
           console.error('지원하지 않는 카드입니다.');
           break;
+
         case 'invalidCrypto':
           console.error('스마트카드가 올바르게 발급되지 않았습니다. 부원인 경우 관리자에게 문의하세요.');
           break;
+
         case 'RFDrop':
           console.error('카드를 다시 대주세요.');
           break;
-      }
+        }
+
+        setNotifyStatus(error);
     });
 
     return () => {
@@ -81,16 +86,17 @@ export default function Home() {
 
   return (
     <>
-    {(() => {
-      if (notifyStatus.eventFired)
+      {(() => {
         // 카드 이벤트 알림창 띄우기
-        return (
-          <NotifyWindow
-            type={notifyStatus.status}
-            name={notifyStatus.name}
-          />
-      );
-    })()}
+        if (notifyStatus.eventFired) {
+          return (
+            <NotifyWindow
+              type={notifyStatus.status}
+              name={notifyStatus.name || null}
+            />
+          );
+        }
+      })()}
       <main className='flex flex-col p-9 justify-between h-screen bg-white rounded-2xl'>
         <section>
           {/* 로고, 날짜, 시간 + 연구실 소식 섹션 */}

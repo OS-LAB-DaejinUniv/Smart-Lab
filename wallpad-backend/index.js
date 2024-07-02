@@ -86,30 +86,38 @@ arduino.on('data', (data) => {
 			now = { uuid: uuid, type: processType, history: newLog, extra: extra };
 
 		} else if (ok) {
-			// read personal preferences settings on smartcard.
+			// load personal preference settings on smartcard.
 			const userPref = new SCUserPref(now.extra);
 
 			// retrieve user name from db.
 			const userNameQuery = db.prepare(sqls.getName);
-			const userName = userNameQuery.get(now.uuid).name;
+			try {
+				const userName = userNameQuery.get(now.uuid).name;
 
-			// send result through socket.io to frontend.
-			io.emit('success', new SCEvent('arrival', userName));
+				// send result through socket.io to frontend.
+				io.emit('success', new SCEvent('arrival', userName));
 
-			// belows are only for logging
-			console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]} → ${now.uuid} (history: ${toHexString(now.history)})`);
-			console.log(`스마트카드 개인 설정 읽음:\n` +
-				`* 첫 출근시 전등 켬: ${userPref.lightOnAtFirst}\n` +
-				`* 마지막 퇴근시 전등 끔: ${userPref.lightOffWhenLeave}\n` +
-				`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n` +
-				`* 마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
+				// belows are only for logging
+				console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]} → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
+				console.log(`스마트카드 개인 설정 읽음:\n` +
+					`* 첫 출근시 전등 켬: ${userPref.lightOnAtFirst}\n` +
+					`* 마지막 퇴근시 전등 끔: ${userPref.lightOffWhenLeave}\n` +
+					`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n` +
+					`* 마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
+
+				// play sound effect.
+				playSFX(true);
+
+			} catch (e) { // if not found such UUID.
+				io.emit('error', new SCEvent('invalidCrypto'));
+				console.log(`${new Date().toLocaleString('ko-KR')} ${now.uuid} 등록된 UUID가 아닙니다.`);
+
+				// play sound effect.
+				playSFX(false);
+			}
 
 			// reset `now` object.
 			now = null;
-
-			// play sound effect.
-			playSFX(true);
-
 
 		} else if (unsupported) {
 			console.log('Unsupported card.');
@@ -129,7 +137,7 @@ arduino.on('data', (data) => {
 
 			playSFX(false);
 		}
-	
+
 	} catch (err) {
 		console.error('오류: ' + err);
 	}

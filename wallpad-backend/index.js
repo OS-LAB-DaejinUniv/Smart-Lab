@@ -40,6 +40,16 @@ const playSFX = (status) => {
 	new Sound(path).play();
 };
 
+io.on('connection', (wallpad) => {
+	console.log(`${new Date().toLocaleString('ko-KR')} Wallpad frontend has connected.`);
+
+	// responses list of all members with its current status. 
+	wallpad.on('getMemberStat', () => {
+		console.log(`${new Date().toLocaleString('ko-KR')} Got a websocket request: getMemberStat`);
+		wallpad.emit('getMemberStatResp', 'userData');
+	});
+});
+
 arduino.on('data', (data) => {
 	try {
 		buffer += data.toString();
@@ -67,7 +77,7 @@ arduino.on('data', (data) => {
 			const extra = authed.substring(32 * 2, 48 * 2);
 			buffer = '';
 
-			// prepare new usage history data saved on card.
+			// prepares new usage history data will be saved onto the card.
 			const time = parseInt(new Date().getTime() / 1000).toString(16);
 			const processType = 1;
 
@@ -86,37 +96,38 @@ arduino.on('data', (data) => {
 			now = { uuid: uuid, type: processType, history: newLog, extra: extra };
 
 		} else if (ok) {
-			// load personal preference settings on smartcard.
+			// loads personal preference settings on smartcard.
 			const userPref = new SCUserPref(now.extra);
 
-			// retrieve user name from db.
+			// retrieves user name from db.
 			const userNameQuery = db.prepare(sqls.getName);
 			try {
 				const userName = userNameQuery.get(now.uuid).name;
 
-				// send result through socket.io to frontend.
+				// sends result through socket.io to frontend.
 				io.emit('success', new SCEvent('arrival', userName));
 
 				// belows are only for logging
-				console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]} → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
+				console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]}처리 → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
 				console.log(`스마트카드 개인 설정 읽음:\n` +
 					`* 첫 출근시 전등 켬: ${userPref.lightOnAtFirst}\n` +
 					`* 마지막 퇴근시 전등 끔: ${userPref.lightOffWhenLeave}\n` +
 					`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n` +
 					`* 마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
 
-				// play sound effect.
+				// plays sound effect.
 				playSFX(true);
 
-			} catch (e) { // if not found such UUID.
+			} catch (e) { // not found such UUID.
 				io.emit('error', new SCEvent('invalidCrypto'));
+
 				console.log(`${new Date().toLocaleString('ko-KR')} ${now.uuid} 등록된 UUID가 아닙니다.`);
 
-				// play sound effect.
+				// plays sound effect.
 				playSFX(false);
 			}
 
-			// reset `now` object.
+			// resets `now` object.
 			now = null;
 
 		} else if (unsupported) {

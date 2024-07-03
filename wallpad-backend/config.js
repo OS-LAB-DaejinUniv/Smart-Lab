@@ -21,9 +21,9 @@ const config = {
     dbConf: {
         fileMustExist: true
     },
-    doorLock: "http://api.portal.oslab/v1/doorlock/unlock",
-    airSensor: "http://api.portal.oslab/v1/airquality/getTemp",
-    updateUserStatus: "http://api.portal.oslab/v1/user/updateStatus",
+    doorLock: "http://api.oslab/v1/doorlock/unlock",
+    airSensor: "http://api.oslab/v1/airquality/getTemp",
+    updateUserStatus: "http://api.oslab/v1/user/updateStatus",
 };
 
 module.exports = config;

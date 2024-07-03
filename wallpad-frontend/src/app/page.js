@@ -10,13 +10,23 @@ export default function Home() {
   const audioRef = useRef();
   const audioSourceRef = useRef();
   const [notifyStatus, setNotifyStatus] = useState({});
+  let leftTimeNotifyHide = 0;
   const transitionRate = 8000;
   let socket;
 
   const adPagesMax = 2;
   let [currentAdPage, setCurrentAdPage] = useState(1);
 
-  /* socket.io setup */
+  // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
+  useEffect(() => {
+    console.log('팝업열림');
+    setTimeout(() => {
+      setNotifyStatus({});
+      console.log('팝업닫는다');
+    }, 3000);
+  }, [notifyStatus.eventFired]);
+
+  /* ========== start socket.io setup ========== */
   useEffect(() => {
     socket = io('http://localhost:5000', {
       cors: {
@@ -27,36 +37,23 @@ export default function Home() {
 
     socket.on('success', (data) => {
       console.log(`[SCEvent] eventFired: ${data.eventFired}, name: ${data.name}, status: ${data.status}`);
+      socket.emit('getMemberStat');
 
       setNotifyStatus(data);
 
-      // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
-    setTimeout(() => {
-      setNotifyStatus(prevStatus => ({
-        ...prevStatus,
-        eventFired: false // 팝업을 닫음
-      }));
-    }, 3000);
     });
 
     socket.on('error', (error) => {
       console.error(`[SCEvent] eventFired: ${error.eventFired}, name: ${error.name}, status: ${error.status}`);
 
       setNotifyStatus(error);
-      
-      // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
-    setTimeout(() => {
-      setNotifyStatus(prevStatus => ({
-        ...prevStatus,
-        eventFired: false // 팝업을 닫음
-      }));
-    }, 3000);
     });
 
     return () => {
       if (socket) socket.disconnect();
     }
   }, []);
+  /* ========== end socket.io setup ========== */
 
   /* 광고 페이지 전환 */
   useEffect(() => {

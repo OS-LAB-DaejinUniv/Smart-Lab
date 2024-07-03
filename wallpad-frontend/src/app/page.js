@@ -17,6 +17,9 @@ export default function Home() {
   const adPagesMax = 2;
   let [currentAdPage, setCurrentAdPage] = useState(1);
 
+  // 랩원 상태
+  let [memberStatus, setMemberStatus] = useState([]);
+
   // 팝업이 열린 후 3초 후에 자동으로 닫히도록 타이머 설정
   useEffect(() => {
     console.log('팝업열림');
@@ -48,6 +51,13 @@ export default function Home() {
 
       setNotifyStatus(error);
     });
+
+    socket.on('getMemberStatResp', (userData) => {
+      console.log(userData);
+      setMemberStatus(userData);
+    });
+
+    socket.emit('getMemberStat');
 
     return () => {
       if (socket) socket.disconnect();
@@ -85,6 +95,11 @@ export default function Home() {
   const formattedDate = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}. (${weekDay[today.getDay()]
     })`
 
+  // memberStatus 변경 시 로그 출력
+  useEffect(() => {
+    console.log(memberStatus);
+  }, [memberStatus]);
+
   return (
     <>
       {(() => {
@@ -119,73 +134,20 @@ export default function Home() {
           <div className='flex flex-wrap justify-start gap-4'>
             {/* 부원 목록 및 상태 표시 섹션 */}
             {(() => {
-              const memberList = [
-                // 부원 목록 (테스트 데이터)
-                {
-                  name: '이세혁',
-                  position: '랩장',
-                  status: '재실',
-                  emoji: '😋',
-                  isDisabled: false
-                },
-                {
-                  name: '양준석',
-                  position: '부원',
-                  status: '수업 중',
-                  emoji: '😋',
-                  isDisabled: true
-                },
-                {
-                  name: '강병재',
-                  position: '부원',
-                  status: '재실',
-                  emoji: '😃',
-                  isDisabled: false
-                },
-                {
-                  name: '신우진',
-                  position: '부원',
-                  status: '퇴근',
-                  emoji: '😁',
-                  isDisabled: true
-                },
-                {
-                  name: '이동재',
-                  position: '부원',
-                  status: '재실',
-                  emoji: '😆',
-                  isDisabled: false
-                },
-                {
-                  name: '김연진',
-                  position: '부원',
-                  status: '퇴근',
-                  emoji: '😋',
-                  isDisabled: true
-                },
-                {
-                  name: '양성모',
-                  position: '부원',
-                  status: '재실',
-                  emoji: '😋',
-                  isDisabled: false
-                },
-                {
-                  name: '조정현',
-                  position: '부원',
-                  status: '퇴근',
-                  emoji: '😋',
-                  isDisabled: true
-                }
-              ]
-              return memberList.map(user => {
+              if (!Array.isArray(memberStatus)) {
+                console.error("memberStatus is not an array", memberStatus);
+                return null;
+              }
+
+              return memberStatus.map((user, index) => {
                 return (
                   <Profile
+                    key={user.uuid} // Use uuid as the key
                     name={user.name}
-                    position={user.position}
-                    status={user.status}
+                    position={user.position === 0 ? "부원" : "랩장"}
+                    status={user.status === 0 ? "퇴근" : "재실"}
                     emoji={user.emoji}
-                    isDisabled={user.isDisabled}
+                    isDisabled={user.status === 0}
                   />
                 )
               })

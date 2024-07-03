@@ -46,8 +46,11 @@ io.on('connection', (wallpad) => {
 	// responses list of all members with its current status. 
 	wallpad.on('getMemberStat', () => {
 		console.log(`${new Date().toLocaleString('ko-KR')} Got a websocket request: getMemberStat`);
-		wallpad.emit('getMemberStatResp', 'userData');
+		const userData = db.prepare(sqls.member);
+		const all = userData.all();
+		wallpad.emit('getMemberStatResp', all); // Send the array directly
 	});
+	
 });
 
 arduino.on('data', (data) => {
@@ -99,21 +102,35 @@ arduino.on('data', (data) => {
 			// loads personal preference settings on smartcard.
 			const userPref = new SCUserPref(now.extra);
 
+			// 현재상태가져옴
+			const memberState = db.prepare(sqls.getStatus);
+			const currentStatus = memberState.get(now.uuid).status;
+			console.log('현재상태: ' + currentStatus);
+
+			// 현재상태반전
+			const newState = currentStatus === 1 ? 0 : 1;
+			console.log(newState);
+
+			// 상태 업데이트
+			const stateUpdate = db.prepare(sqls.updateStatus);
+			const bbb = stateUpdate.run(newState, now.uuid);
+			console.log(bbb);
+
 			// retrieves user name from db.
 			const userNameQuery = db.prepare(sqls.getName);
+
 			try {
 				const userName = userNameQuery.get(now.uuid).name;
-
+				const changeStatus = newState === 1 ? 'arrival' : 'goHome';
 				// sends result through socket.io to frontend.
-				io.emit('success', new SCEvent('arrival', userName));
+				io.emit('success', new SCEvent(changeStatus, userName));
 
 				// belows are only for logging
 				console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]}처리 → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
 				console.log(`스마트카드 개인 설정 읽음:\n` +
 					`* 첫 출근시 전등 켬: ${userPref.lightOnAtFirst}\n` +
 					`* 마지막 퇴근시 전등 끔: ${userPref.lightOffWhenLeave}\n` +
-					`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n` +
-					`* 마지막 퇴근시 도어락 잠금: ${userPref.lockDoorWhenLeave}`);
+					`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n`);
 
 				// plays sound effect.
 				playSFX(true);
@@ -126,6 +143,12 @@ arduino.on('data', (data) => {
 				// plays sound effect.
 				playSFX(false);
 			}
+
+			// 히스토리 로그
+			const time = new Date().getTime() / 1000;
+			const historyUpdate = db.prepare(sqls.addHistory);
+			const tlqkf = historyUpdate.run(now.uuid,newState,parseInt(time));
+			console.log(tlqkf);
 
 			// resets `now` object.
 			now = null;
@@ -153,6 +176,8 @@ arduino.on('data', (data) => {
 		console.error('오류: ' + err);
 	}
 });
+
+
 
 server.listen(5000, () => {
 	console.log(`${new Date().toLocaleString('ko-KR')} Socket.IO 서버를 시작했습니다.`);

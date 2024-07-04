@@ -146,7 +146,7 @@ export default function Home() {
                     name={user.name}
                     position={user.position === 0 ? "부원" : "랩장"}
                     status={user.status === 0 ? "퇴근" : "재실"}
-                    emoji={user.emoji}
+                    emoji={"😊"}
                     isDisabled={user.status === 0}
                   />
                 )

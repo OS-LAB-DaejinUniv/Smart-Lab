@@ -19,12 +19,6 @@ const io = new Server(server, config.socketioConf);
 let buffer = '';
 let now = null; // 아두이노로부터 사용내역 기록 완료 응답을 받기 전 인증된 사용자 정보를 임시 보관
 
-// 각 사용내역 타입에 대한 설명
-const logType = {
-	0: '퇴근',
-	1: '재실'
-};
-
 // retrieved from https://stackoverflow.com/questions/34309988/byte-array-to-hex-string-conversion-in-javascript
 function toHexString(byteArray) {
 	return Array.from(byteArray, function (byte) {
@@ -105,32 +99,26 @@ arduino.on('data', (data) => {
 			// 현재상태가져옴
 			const memberState = db.prepare(sqls.getStatus);
 			const currentStatus = memberState.get(now.uuid).status;
-			console.log('현재상태: ' + currentStatus);
 
-			// 현재상태반전
-			const newState = currentStatus === 1 ? 0 : 1;
-			console.log(newState);
+			// 새 상태
+			const newState = (currentStatus === 1) ? 0 : 1;
 
 			// 상태 업데이트
 			const stateUpdate = db.prepare(sqls.updateStatus);
-			const bbb = stateUpdate.run(newState, now.uuid);
-			console.log(bbb);
+			const stateUpdateResult = stateUpdate.run(newState, now.uuid);
 
 			// retrieves user name from db.
 			const userNameQuery = db.prepare(sqls.getName);
 
 			try {
 				const userName = userNameQuery.get(now.uuid).name;
-				const changeStatus = newState === 1 ? 'arrival' : 'goHome';
+				const changeStatus = (newState === 1) ? 'arrival' : 'goHome';
 				// sends result through socket.io to frontend.
 				io.emit('success', new SCEvent(changeStatus, userName));
 
 				// belows are only for logging
-				console.log(`${new Date().toLocaleString('ko-KR')} ${logType[now.type]}처리 → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
-				console.log(`스마트카드 개인 설정 읽음:\n` +
-					`* 첫 출근시 전등 켬: ${userPref.lightOnAtFirst}\n` +
-					`* 마지막 퇴근시 전등 끔: ${userPref.lightOffWhenLeave}\n` +
-					`* 첫 출근시 도어락 해제: ${userPref.unlockDoorAtFirst}\n`);
+				console.log(`${new Date().toLocaleString('ko-KR')} ${(newState == 0) ? '퇴근' : '재실'}처리 → ${now.uuid}(userName: ${userName}) (history: ${toHexString(now.history)})`);
+				console.log(`${userPref}`);
 
 				// plays sound effect.
 				playSFX(true);
@@ -147,8 +135,7 @@ arduino.on('data', (data) => {
 			// 히스토리 로그
 			const time = new Date().getTime() / 1000;
 			const historyUpdate = db.prepare(sqls.addHistory);
-			const tlqkf = historyUpdate.run(now.uuid,newState,parseInt(time));
-			console.log(tlqkf);
+			const historyUpdateResult = historyUpdate.run(now.uuid, newState, parseInt(time));
 
 			// resets `now` object.
 			now = null;

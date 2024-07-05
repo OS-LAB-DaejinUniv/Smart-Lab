@@ -7,8 +7,6 @@ import NotifyWindow from './components/NotifyWindow'
 import io from 'socket.io-client'
 
 export default function Home() {
-  const audioRef = useRef();
-  const audioSourceRef = useRef();
   const [notifyStatus, setNotifyStatus] = useState({});
   let leftTimeNotifyHide = 0;
   const transitionRate = 8000;
@@ -146,7 +144,7 @@ export default function Home() {
                     name={user.name}
                     position={user.position === 0 ? "부원" : "랩장"}
                     status={user.status === 0 ? "퇴근" : "재실"}
-                    emoji={"😊"}
+                    emoji={"🤒"}
                     isDisabled={user.status === 0}
                   />
                 )
@@ -168,9 +166,6 @@ export default function Home() {
             </p>
           </div>
         </footer>
-        <audio ref={audioRef}>
-          <source ref={audioSourceRef} src={''} />
-        </audio>
       </main>
     </>
   )

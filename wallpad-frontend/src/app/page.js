@@ -111,7 +111,7 @@ export default function Home() {
           );
         }
       })()}
-      <main className='flex flex-col p-9 justify-between h-screen bg-white rounded-2xl'>
+      <main className='flex flex-col p-9 justify-between bg-white rounded-2xl'>
         <section>
           {/* 로고, 날짜, 시간 + 연구실 소식 섹션 */}
           {/* 로고, 날짜, 시간 섹션 */}

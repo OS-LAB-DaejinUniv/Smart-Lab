@@ -1,22 +1,23 @@
-const config = require('./config');
-const regexps = require('./regexps');
-const sqls = require('./sqls');
-const SCEvent = require('./SCEvent');
-const SCData = require('./SCData');
-const SCHisory = require('./SCHistory');
-const SCUserPref = require('./SCUserPref');
-const express = require('express');
-const Database = require('better-sqlite3');
-const db = new Database(config.dbPath, config.dbConf);
-const http = require('http');
-const Sound = require('node-aplay');
-const { Server } = require('socket.io');
-const { SerialPort } = require('serialport');
+const config = require('./config')
+const regexps = require('./regexps')
+const sqls = require('./sqls')
+const SCEvent = require('./SCEvent')
+const SCData = require('./SCData')
+const SCHisory = require('./SCHistory')
+const SCUserPref = require('./SCUserPref')
+const express = require('express')
+const Database = require('better-sqlite3')
+const db = new Database(config.dbPath, config.dbConf)
+const http = require('http')
+const Sound = require('node-aplay')
+const { Server } = require('socket.io')
+const { SerialPort } = require('serialport')
+const { RegexParser } = require('@serialport/parser-regex')
 
-const app = express();
-const server = http.createServer(app);
-const arduino = new SerialPort(config.arduino);
-const io = new Server(server, config.socketioConf);
+const app = express()
+const server = http.createServer(app)
+const arduino = new SerialPort(config.arduino)
+const io = new Server(server, config.socketioConf)
 
 let buffer = '';
 let now = null; // 아두이노로부터 사용내역 기록 완료 응답을 받기 전 인증된 사용자 정보를 임시 보관
@@ -52,13 +53,6 @@ arduino.on('data', (data) => {
 	try {
 		buffer += data.toString();
 
-		// arduino sends a single dot every second if it's working normally.
-		if (data == '.') {
-			buffer = '';
-			now = null;
-			return;
-		}
-
 		// trying to find meaningful data from serial buffer.
 		const authed = (() => {
 			const match = regexps.authedUser.exec(buffer) || '';
@@ -88,13 +82,15 @@ arduino.on('data', (data) => {
 			arduino.write(newhist);
 
 			// will be used on "else if (ok)" as it receives 'OK' from arduino.
-			now = { uuid: scdata.uuid, history: newhist, type: newState, extra: scdata.extra };
+			now = {
+				uuid: scdata.uuid,
+				history: newhist,
+				type: newState,
+				extra: new SCUserPref(scdata.extra) 
+			};
 
 		} else if (ok) {
 			try {
-				// loads personal preference settings on smartcard.
-				const userPref = new SCUserPref(now.extra);
-
 				// update member state if arduino responded.
 				const stateUpdate = db.prepare(sqls.updateStatus)
 					.run(now.type, now.uuid);
@@ -113,17 +109,14 @@ arduino.on('data', (data) => {
 				// plays sound effect.
 				playSFX(true);
 
-			} catch (e) { // not found such UUID.
-				io.emit('error', new SCEvent('invalidCrypto'));
+			} catch (err) {
+				console.log('오류남요' + err);
+				io.emit('error', new SCEvent('notFound'));
 				console.log(e);
 				console.log(`${new Date().toLocaleString('ko-KR')} ${now.uuid} 등록된 UUID가 아닙니다.`);
 
 				// plays sound effect.
 				playSFX(false);
-
-			} finally {
-				// resets `now` object.
-				now = null;
 			}
 
 			// 히스토리 로그

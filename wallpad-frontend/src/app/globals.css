@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* main {
-	width: ;
-	height: ;
-} */
+main {
+	width: 540px;
+	height: 960px;
+}
 * {
     white-space: pre-wrap;
     line-height: 100%;
@@ -39,6 +39,9 @@ footer, header, hgroup, menu, nav, section {
 }
 body {
 	line-height: 1;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 ol, ul {
 	list-style: none;

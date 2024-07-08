@@ -9,6 +9,7 @@ const NotifyWindow = ({ type, name }) => {
     'unsupported': '지원하지 않는 카드에요',
     'invalidCrypto': '유효하지 않은 카드에요',
     'RFDrop': '카드를 다시 대주세요',
+    'notFound': '등록된 카드가 아니에요',
     'arrival': '재실 상태로 변경했어요!',
     'goHome': '퇴근 상태로 변경했어요!'
   };
@@ -17,6 +18,7 @@ const NotifyWindow = ({ type, name }) => {
     'unsupported': 'OS랩 카드가 아닌 것 같네요. 카드를 확인하고 다시 시도해 주세요.',
     'invalidCrypto': '애플릿이 비정상적으로 설치되어 있어 처리할 수 없어요. 담당 부원에게 문의해 주세요.',
     'RFDrop': '카드를 좀 더 오래 태그해 주세요. 정상적으로 처리되면 알림음이 들려요.',
+    'notFound': '등록된 카드가 아니어서 처리하지 못했어요. 담당 부원에게 문의해 주세요.',
     'arrival': '님의 현재 상태를 재실 상태로 변경했어요.',
     'goHome': '님의 현재 상태를 퇴근 상태로 변경했어요.'
   };

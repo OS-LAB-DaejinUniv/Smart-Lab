@@ -30,7 +30,7 @@ function toHexString(byteArray) {
 }
 
 const playSFX = (status) => {
-	path = `./assets/${status ?
+	const path = `./assets/${status ?
 		'success' :
 		'error'}.wav`
 

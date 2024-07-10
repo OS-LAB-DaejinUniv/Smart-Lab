@@ -14,7 +14,7 @@
 #define LEN_SERVER_AUTH_PAYLOAD  (32)
 #define RECOGNIZE_THRESHOLD      (1100)
 
-#define DEBUG
+// #define DEBUG
 
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS); // pn532 드라이버 초기화
 CBC<AES128> cbcaes128;
@@ -22,7 +22,7 @@ CBC<AES128> cbcaes128;
 extern uint8_t key[]; // secret.ino에서 참조하도록 지정
 extern volatile unsigned long timer0_millis;
 int beforeMillis = 0;
-const uint8_t iv[16] = {0,};
+uint8_t iv[16] = {0,};
 
 char SELECT[] = {0x00, 0xA4, 0x04, 0x00, 0x07, 0x55, 0x44, 0x33, 0x22, 0x11, 0xCC, 0xBB};
 char CLIENT_AUTH[21] = {0x54, 0xAA, 0x00, 0x00, 0x10}; // 클라이언트 인증 메시지, 16바이트 nonce를 뒤에 붙여 사용하여야 함
@@ -32,7 +32,7 @@ char SW1SW2_OK[2] = {0x90, 0x00};
 
 void setup() {
   Serial.begin(115200);
-  Serial.setTimeout(1500);
+  Serial.setTimeout(3000);
   #ifdef DEBUG
     Serial.setTimeout(5000);
   #endif
@@ -195,11 +195,8 @@ void loop(void) {
 
               // 로그 저장 명령 전송
               bool res_svr_auth = nfc.inDataExchange(ADD_LOG, sizeof(ADD_LOG), addlog_result, &len_cchg_buf);
-              Serial.println("\n10. final: ");
-              printHex(addlog_result, 4);
               
               res_svr_auth ? Serial.println("OK") : Serial.println("SVRAUTH_ERROR");
-
             } else Serial.println("DIDN_GOT_CHALLENGE");
 
             delay(8);
@@ -220,8 +217,7 @@ void loop(void) {
     beforeMillis = millis();
 
   } else {
-    // Serial.print(".");
+    Serial.print(".");
     // timer0_millis = 0;
-    return;
   }
 }

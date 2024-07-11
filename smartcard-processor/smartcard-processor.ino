@@ -32,7 +32,7 @@ char SW1SW2_OK[2] = {0x90, 0x00};
 
 void setup() {
   Serial.begin(115200);
-  Serial.setTimeout(3000);
+  Serial.setTimeout(1000);
   #ifdef DEBUG
     Serial.setTimeout(5000);
   #endif
@@ -217,7 +217,7 @@ void loop(void) {
     beforeMillis = millis();
 
   } else {
-    Serial.print(".");
+    // Serial.print(".");
     // timer0_millis = 0;
   }
 }

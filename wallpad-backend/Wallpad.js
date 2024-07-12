@@ -11,9 +11,12 @@ const regexps = require('./regexps')
 const SCData = require('./SCData')
 
 class Wallpad {
-    constructor() {
+    constructor(dbConn) {
+        this.db = dbConn;
+
         this.buffer = '';
         this.status = WallpadStatus.IDLE;
+
         this.DEBUG = true;
     }
 
@@ -22,6 +25,7 @@ class Wallpad {
             throw new Error('Wallpad is busy now.');
 
         this.buffer += data.toString();
+        
         this.#parseResponse();
     }
 
@@ -29,8 +33,10 @@ class Wallpad {
         try {
             if (this.DEBUG) console.log(`[authedUser] called with given parameter: ${data}`);
 
-            const userData = new SCData(data);
-            console.log(userData);
+            const parsed = new SCData(this.db, data)
+                            .selectFromDB();
+            
+            console.log(parsed);
 
 
         } catch (err) {
@@ -84,6 +90,6 @@ class Wallpad {
             this.#invalidCardHandler(matchedType);
         }
     }
-}
+};
 
 module.exports = Wallpad;

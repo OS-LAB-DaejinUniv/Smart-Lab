@@ -1,6 +1,6 @@
 const config = {
     arduino: {
-        path: '/dev/ttyACM0',
+        path: '/dev/ttyACM1',
         baudRate: 115200
     },
     socketioConf: {

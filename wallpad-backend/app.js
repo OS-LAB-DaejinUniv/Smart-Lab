@@ -1,6 +1,6 @@
 const config = require('./config')
 const regexps = require('./regexps')
-const sqls = require('./sqls')
+const sqls = require('./query')
 const SCEvent = require('./SCEvent')
 const SCData = require('./SCData')
 const SCHisory = require('./SCHistory')

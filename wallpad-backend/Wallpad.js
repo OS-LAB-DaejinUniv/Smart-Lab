@@ -31,16 +31,16 @@ class Wallpad {
 
     #authedUserHandler(data) {
         try {
-            if (this.DEBUG) console.log(`[authedUser] called with given parameter: ${data}`);
+            if (this.DEBUG) console.log(`[Wallpad.authedUser] called with given parameter: ${data}`);
 
-            const parsed = new SCData(this.db, data)
-                            .selectFromDB();
+            const parsed = new SCData(this.db, data);
             
-            console.log(parsed);
+            parsed.selectFromDB();
 
+            console.log(`[authedUser] uuid: ${parsed.uuid} name: ${parsed.name}, position: ${parsed.position}, status: ${parsed.status}`);
 
         } catch (err) {
-            if (this.DEBUG) console.log(`[authedUser] error: ${err}`);
+            if (this.DEBUG) console.log(`[Wallpad.authedUser] error: ${err}`);
 
         } finally {
             this.status = WallpadStatus.IDLE;
@@ -51,7 +51,7 @@ class Wallpad {
 
     #invalidCardHandler(eventName) {
         try {
-            if (this.DEBUG) console.log(`[invalidCardHandler] called with given parameter: ${eventName}`);
+            if (this.DEBUG) console.log(`[Wallpad.invalidCardHandler] called with given parameter: ${eventName}`);
 
         } catch (err) {
 
@@ -76,7 +76,7 @@ class Wallpad {
 
                 this.buffer = '';
 
-                if (this.DEBUG) console.log(`[parseResponse] data parsed: ${matched}`);
+                if (this.DEBUG) console.log(`[Wallpad.parseResponse] data parsed: ${matched}`);
                 
                 return true;
             }

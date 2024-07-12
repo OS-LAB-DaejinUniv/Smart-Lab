@@ -28,7 +28,10 @@ class SCData {
     selectFromDB() {
         try {
             const row = this.db.selectMemberByUUID(this.uuid);
-            console.log('선택한거' + row);
+
+            Object.keys(row).forEach(key => {
+                this[key] = row[key];
+            });
 
             return this;
         

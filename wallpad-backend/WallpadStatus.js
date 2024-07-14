@@ -1,6 +1,6 @@
 const WallpadStatus = {
     IDLE: 'IDLE',
-    GOT_AUTHED_RESPONSE: 'GOT_AUTHED_RESPONSE',
+    BUSY: 'BUSY',
 };
 
 Object.freeze(WallpadStatus);

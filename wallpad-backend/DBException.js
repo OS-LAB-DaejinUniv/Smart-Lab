@@ -1,5 +1,5 @@
 class DBException extends Error {
-    constructor(message = '', type) {
+    constructor(message, type) {
         super(message);
         this.name = type;
     }

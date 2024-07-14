@@ -7,8 +7,9 @@ class SCEvent {
         this.name = name || null;
         this.why = why || null;
 
-        if (this.status == null)
+        if (this.status == null) {
             throw new Error('`status` must be given for SCEvent.');
+        }
     }
 }
 

@@ -22,6 +22,8 @@ class SCData {
         this.position = null;
         this.status = null;
 
+        this.selectFromDB();
+
         return this;
     }
 
@@ -36,8 +38,7 @@ class SCData {
             return this;
         
         } catch (err) {
-            console.error(`[SCData.selectFromDB] error: ${err}`);
-            throw new DBException('NotFoundUser');
+            throw new DBException('', 'NotFoundUser');
         }
     }
 }

@@ -6,9 +6,11 @@
  */
 
 const regexps = {
+    // positive
     authedUser: new RegExp(/AUTHED_[0-9A-F]{96}/),
     processed: new RegExp(/OK/),
-    // authFailed: new RegExp(/CLIENT_AUTH_ERROR/),
+    
+    // negative
     notosid: new RegExp(/NOT_OSID/),
     crypto: new RegExp(/MISMATCHED_CRYPTOGRAM/),
     rfLost: new RegExp(/RF_DROP/),

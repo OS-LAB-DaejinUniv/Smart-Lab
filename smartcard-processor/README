@@ -21,16 +21,14 @@ v1.0a (추가 개선 필요)
 5. NOT_OSID: SELECT APDU 오류, 애플릿을 찾을 수 없음.
 6. RF_LOST: 카드와 통신 중 신호 두절
 
-# 상태 메시지
-1. '.': 정상적으로 카드 인식을 대기중인 경우
-
 # 스마트카드에 기록되는 로그의 포맷
 XX XX XX XX YY
 X: 32바이트 유닉스 타임
 Y: 카드 사용내역의 타입
 
-0x01: 출근
-0x02: 퇴근
+타입?
+0x00: 부재중(퇴근)
+0x01: 재실
 
 # 사용 라이브러리
 1. CryptoAES_CBC(https://github.com/Obsttube/CryptoAES_CBC)

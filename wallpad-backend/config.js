@@ -15,16 +15,16 @@ const config = {
         1: '랩장',
     },
     statusCode: {
-        0: '퇴근',
+        0: '부재중',
         1: '재실',
     },
     dbPath: 'wallpad.db',
     dbConf: {
         fileMustExist: true
     },
-    doorLock: "http://api.oslab/doorlock/unlock",
-    lightSwitch: "http://api.oslab/lightswitch/set",
-    updateUserStatus: "http://api.oslab/user/updateStatus",
+    doorLock: "http://api.oslab:8080/doorlock/unlock",
+    lightSwitch: null,
+    updateUserStatus: "http://api.oslab:8080/user/updateStatus",
 };
 
 module.exports = config;

@@ -10,6 +10,7 @@ const WallpadStatus = require('./WallpadStatus')
 const regexps = require('./regexps')
 const SCData = require('./SCData')
 const SCHisory = require('./SCHistory')
+const SCUserPref = require('./SCUserPref')
 const SCEvent = require('./SCEvent')
 const sfx = require('./sfx')
 
@@ -63,8 +64,24 @@ class Wallpad {
             return;
 
         } finally {
-            this.pending = null;
             this.status = WallpadStatus.IDLE;
+        }
+    }
+
+    #runTasks(pref) {
+        try {
+            if (!pref instanceof SCUserPref) {
+                throw new Error('`pref` must be a instance of SCUserPref.');
+            }
+
+            const prefs = Object.create(pref);
+
+            for (const [taskName, isSetted] of Object.entries(prefs)) {
+                console.log(`${taskName} 설정 여부: ${isSetted ? '예' : '아니오'}`)
+            }
+
+        } catch (err) {
+            console.log(`[Wallpad.runTasks] ${err} `);
         }
     }
 
@@ -79,6 +96,11 @@ class Wallpad {
                 // send event to frontend.
                 this.io.emit('success',
                     new SCEvent(changedStat ? 'goHome' : 'arrival', this.pending.name));
+
+                // run tasks according to user preference settings on card.
+                setTimeout(() => {
+                    this.#runTasks(this.pending.extra);
+                }, 0);
 
                 console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
                     + `pos.: ${this.pending.position}, `

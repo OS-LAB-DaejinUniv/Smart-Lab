@@ -1,4 +1,11 @@
-const Database = require('better-sqlite3')
+/**
+ * @brief A class which abstracts database related tasks.
+ * @details Provides methods to query to database.
+ * @author Jay Kang
+ * @date July 15, 2024
+ * @version 0.1
+ */
+
 const query = require('./query')
 const DBException = require('./DBException')
 

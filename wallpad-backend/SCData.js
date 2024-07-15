@@ -1,11 +1,16 @@
-// 인증된 스마트카드의 데이터를 전달받아 파싱하는 데이터 객체
-// decrypted challenge(16-byte) + UUID of smartcard(16-byte) + personal preferences(16-byte)
+/**
+ * @brief A data class which parses authenticated smartcard response as object.
+ * @author Jay Kang
+ * @date July 15, 2024
+ * @version 0.1
+ */
 
 const SCUserPref = require('./SCUserPref')
 const DBException = require('./DBException');
 
 class SCData {
     constructor(dbConn, authedResp) {
+        // decrypted challenge(16-byte) + UUID of smartcard(16-byte) + personal preferences(16-byte)
         if (authedResp.length != (16 * 2) * 3) throw new Error(
             '`authedResp`: invalid length.'
         );

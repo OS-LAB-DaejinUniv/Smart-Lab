@@ -45,7 +45,7 @@ void setup() {
 
 void update_challenge() {
   for (uint8_t i = 5; i < sizeof(CLIENT_AUTH); i++) { // 인덱스 5 ~ 20까지 각 인덱스마다
-    CLIENT_AUTH[i] = (char) (random(256)); // 8비트 난수 생성하여 저장
+    CLIENT_AUTH[i] = (char) (random(256)) * analogRead(3); // 8비트 난수 생성하여 저장
   }
 }
 

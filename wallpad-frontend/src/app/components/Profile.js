@@ -7,17 +7,13 @@ status:     상태 문자열(재실, 수업 중, 퇴근 등)
 emoji:      프로필 이모지
 isDisabled: true인 경우 이모지 및 텍스트를 흐리게 표시
 */
-import localFont from "next/font/local";
-
-const statusEmoji = localFont({
-  src: '../../../public/fluentuiEmoji.ttf',
-  variable: '--status-emoji'
-});
 
 const Profile = ({ name, position, status, emoji, isDisabled = false }) => {
   const disabledColor = '#919398';
   const enabledColor = '#2A2C33';
   const textColor = isDisabled ? `text-[${disabledColor}]` : `text-[${enabledColor}]`;
+  const positionText = ['부원', '랩장'];
+  const statusText = ['퇴근', '재실'];
 
   return (
     <>
@@ -26,15 +22,15 @@ const Profile = ({ name, position, status, emoji, isDisabled = false }) => {
         <div className='flex flex-col'>
           <div className='flex items-end'>
             <p className='text-xl font-bold leading-[1.3]'>{ name }</p>
-            <p className='text-sm ml-1'>{ position }</p>
+            <p className='text-sm ml-1'>{ positionText[position] }</p>
           </div>
           <p
             className='text-sm leading-[1.4]'
-          >{ status }</p>
+          >{ statusText[status] }</p>
         </div>
         <p
           className={`right-0 text-4xl text-right leading-[1.3]`}
-          style={{ filter: `${isDisabled ? 'grayscale(100%)' : ''}` }}
+          style={{ filter: `${(isDisabled === 0) ? 'grayscale(100%)' : ''}` }}
         >{ emoji }</p>
       </div>
     </>

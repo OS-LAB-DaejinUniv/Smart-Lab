@@ -140,12 +140,12 @@ export default function Home() {
               return memberStatus.map((user, index) => {
                 return (
                   <Profile
-                    key={user.uuid} // Use uuid as the key
-                    name={user.name}
-                    position={user.position === 0 ? "부원" : "랩장"}
-                    status={user.status === 0 ? "퇴근" : "재실"}
-                    emoji={"🤒"}
-                    isDisabled={user.status === 0}
+                    key={ user.uuid } // Use uuid as the key
+                    name={ user.name }
+                    position={ user.position }
+                    status={ user.status }
+                    emoji={ "🤒" }
+                    isDisabled={ user.status }
                   />
                 )
               })

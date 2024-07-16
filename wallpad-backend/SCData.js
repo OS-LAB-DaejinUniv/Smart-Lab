@@ -6,7 +6,7 @@
  */
 
 const SCUserPref = require('./SCUserPref')
-const DBException = require('./DBException');
+const DBException = require('./DBException')
 
 class SCData {
     constructor(dbConn, authedResp) {

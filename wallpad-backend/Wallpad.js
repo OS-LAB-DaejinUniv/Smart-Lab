@@ -33,6 +33,11 @@ class Wallpad {
         this.DEBUG = true;
     }
 
+    test(func) {
+
+        setTimeout(func, 0)
+    }
+
     serialEventHandler(data) {
         if (this.status !== WallpadStatus.IDLE) {
             throw new Error('Wallpad is busy now.');
@@ -68,7 +73,7 @@ class Wallpad {
         }
     }
 
-    #runTasks(pref) {
+    #runTasks(pref = this.pending.extra) {
         try {
             if (!pref instanceof SCUserPref) {
                 throw new Error('`pref` must be a instance of SCUserPref.');
@@ -88,7 +93,7 @@ class Wallpad {
     #done() {
         try {
             if (this.pending) {
-                const changedStat = +!this.pending.status; // '+!' reverses status between 1 and 0. 
+                const changedStat = +!this.pending.status; // '+!' reverses value between 1 and 0. 
 
                 // update db.
                 this.db.updateUserStatus(this.pending.uuid, changedStat, new Date());
@@ -97,10 +102,17 @@ class Wallpad {
                 this.io.emit('success',
                     new SCEvent(changedStat ? 'goHome' : 'arrival', this.pending.name));
 
+
+                const deepCopiedExtra = Object.values(this.pending.extra);
                 // run tasks according to user preference settings on card.
-                setTimeout(() => {
-                    this.#runTasks(this.pending.extra);
-                }, 0);
+                setTimeout(async function(value) {
+                    await new Promise((res) => {
+                        setTimeout(() => {
+                            res();
+                        }, 3000);
+                    });
+                    console.log(value);
+                }, 0, deepCopiedExtra);
 
                 console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
                     + `pos.: ${this.pending.position}, `
@@ -117,6 +129,7 @@ class Wallpad {
 
         } finally {
             this.pending = null;
+            console.log('pending 비웠다: ', this.pending)
             this.status = WallpadStatus.IDLE;
         }
     }
@@ -170,7 +183,6 @@ class Wallpad {
                 break;
 
             case matchedType !== null:
-                console.log('ive called')
                 this.#errorHandler(matchedType);
         }
     }

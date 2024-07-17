@@ -4,7 +4,7 @@
   "description": "oslab wallpad backend",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "author": "Jay Kang",
   "license": "ISC",
@@ -15,5 +15,8 @@
     "nodemon": "^3.1.4",
     "serialport": "^12.0.0",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }

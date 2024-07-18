@@ -18,9 +18,12 @@ class Wallpad {
     static isCreated = false;
 
     constructor(dbConn, serialConn, io) {
-        if (Wallpad.isCreated) throw new Error(
-            'Wallpad instance has already been created.')
-        else Wallpad.isCreated = true;
+        if (Wallpad.isCreated) {
+            throw new Error('Wallpad instance has already been created.');
+        
+        } else {
+            Wallpad.isCreated = true;
+        }
 
         this.db = dbConn;
         this.io = io;
@@ -31,11 +34,6 @@ class Wallpad {
         this.pending = null; // temporary SCData object. matched to the user who 'OK' response from arduino.
 
         this.DEBUG = true;
-    }
-
-    test(func) {
-
-        setTimeout(func, 0)
     }
 
     serialEventHandler(data) {
@@ -66,6 +64,7 @@ class Wallpad {
             console.log(`[Wallpad.authedHandler] ${err} `);
 
             this.#errorHandler(err.name);
+
             return;
 
         } finally {
@@ -73,46 +72,47 @@ class Wallpad {
         }
     }
 
-    #runTasks(pref = this.pending.extra) {
+    #triggerRunTasks(userPref) {
         try {
-            if (!pref instanceof SCUserPref) {
+            if (!userPref instanceof SCUserPref) {
                 throw new Error('`pref` must be a instance of SCUserPref.');
             }
 
-            const prefs = Object.create(pref);
-
-            for (const [taskName, isSetted] of Object.entries(prefs)) {
-                console.log(`${taskName} 설정 여부: ${isSetted ? '예' : '아니오'}`)
+            if (Object.keys(userPref.prefs).length == 0) {
+                console.log(`[Wallpad.triggerRunTasks] no enabled tasks has found on the card.`);
+                return;
             }
 
+            // list of all enabled tasks which being launched as card tagged.
+            for (const [taskName, taskInfo] of Object.entries(userPref.prefs)) {
+                console.log(`[Wallpad.triggerRunTasks] enabled, name: ${taskName}, desc: ${taskInfo.description}`);
+            }
+
+            // launches all tasks.
+            userPref.runTasks();
+
         } catch (err) {
-            console.log(`[Wallpad.runTasks] ${err} `);
+            console.log(`[Wallpad.triggerRunTasks] ${err}`);
         }
     }
 
     #done() {
         try {
             if (this.pending) {
-                const changedStat = +!this.pending.status; // '+!' reverses value between 1 and 0. 
+                // '+!' reverses value between 1 and 0.
+                const changedStat = +!this.pending.status;
 
-                // update db.
+                // updates db.
                 this.db.updateUserStatus(this.pending.uuid, changedStat, new Date());
 
-                // send event to frontend.
+                // sends event to frontend.
                 this.io.emit('success',
                     new SCEvent(changedStat ? 'goHome' : 'arrival', this.pending.name));
 
-
-                const deepCopiedExtra = Object.values(this.pending.extra);
-                // run tasks according to user preference settings on card.
-                setTimeout(async function(value) {
-                    await new Promise((res) => {
-                        setTimeout(() => {
-                            res();
-                        }, 3000);
-                    });
-                    console.log(value);
-                }, 0, deepCopiedExtra);
+                // launch tasks according to user preference settings on card. (asynchronously)
+                setTimeout((currentUser) => {
+                    this.#triggerRunTasks(currentUser.extra);
+                }, 0, Object.assign({}, this.pending));
 
                 console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
                     + `pos.: ${this.pending.position}, `
@@ -129,7 +129,6 @@ class Wallpad {
 
         } finally {
             this.pending = null;
-            console.log('pending 비웠다: ', this.pending)
             this.status = WallpadStatus.IDLE;
         }
     }
@@ -182,6 +181,7 @@ class Wallpad {
                 this.#done();
                 break;
 
+            // `null` means something wrong at least. mostly error.
             case matchedType !== null:
                 this.#errorHandler(matchedType);
         }

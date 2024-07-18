@@ -5,14 +5,14 @@ const http = require('http')
 const { SerialPort } = require('serialport')
 const Database = require('better-sqlite3')
 const DB = require('./DB')
-const dbconn = new Database(config.dbPath, config.dbConf);
+const dbconn = new Database(config.dbPath, config.dbConf)
 const { Server } = require('socket.io')
 const app = express()
 const server = http.createServer(app)
-
 const db = new DB(dbconn);
 const arduino = new SerialPort(config.arduino);
 const io = new Server(server, config.socketioConf);
+const SCUserPref = require('./SCUserPref')
 
 server.listen(config.socketioConf.port, () => {
     console.log(`Started Socket.IO server on port ${config.socketioConf.port}.`);

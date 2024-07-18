@@ -1,0 +1,17 @@
+{
+    "name": "unlockDoorLock",
+    "description": "카드 태그시 도어락 해제",
+    "index": 0,
+    "task": {
+        "type": "request",
+        "method": "POST",
+        "header": {
+            "Authorization": "password osa94l3l"
+        },
+        "body": "none",
+        "endpoint": "http://api.oslab:8080/doorlock/unlock",
+        "expected": {
+            "status": "true"
+        }
+    }
+}

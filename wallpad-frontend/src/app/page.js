@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import Profile from './components/Profile'
 import NotifyWindow from './components/NotifyWindow'
 import io from 'socket.io-client'
+const labName = '리눅스 클라우드 컴퓨팅 심화 실습실';
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
@@ -127,7 +128,7 @@ export default function Home() {
             </div>
           </section>
           <p className='text-2xl font-bold mt-7 mb-3'>
-            리눅스 클라우드 컴퓨팅 심화 실습실
+            { labName }
           </p>
           <div className='flex flex-wrap justify-start gap-4'>
             {/* 부원 목록 및 상태 표시 섹션 */}
@@ -144,7 +145,7 @@ export default function Home() {
                     name={ user.name }
                     position={ user.position }
                     status={ user.status }
-                    emoji={ "🤒" }
+                    emoji={ user.emoji }
                     isDisabled={ user.status }
                   />
                 )
@@ -162,7 +163,7 @@ export default function Home() {
           <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
             <div className='flex justify-center items-center rounded-full w-[2rem] h-[2rem] animation-pulse bg-[#3081F5]' />
             <p className='absolute font-medium align-center tracking-tight'>
-              {`이곳에 ID 카드를 대주세요`}
+              {'이곳에 ID 카드를 대주세요'}
             </p>
           </div>
         </footer>

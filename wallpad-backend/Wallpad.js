@@ -107,10 +107,10 @@ class Wallpad {
 
                 // sends event to frontend.
                 this.io.emit('success',
-                    new SCEvent(changedStat ? 'goHome' : 'arrival', this.pending.name));
+                    new SCEvent((changedStat == 0) ? 'goHome' : 'arrival', this.pending.name));
 
                 // launch tasks according to user preference settings on card. (asynchronously)
-                setTimeout((currentUser) => {
+                if (changedStat) setTimeout((currentUser) => {
                     this.#triggerRunTasks(currentUser.extra);
                 }, 0, Object.assign({}, this.pending));
 
@@ -150,7 +150,6 @@ class Wallpad {
             this.pending = null;
             this.status = WallpadStatus.IDLE;
         }
-
     }
 
     #parseResponse() {
@@ -181,9 +180,11 @@ class Wallpad {
                 this.#done();
                 break;
 
-            // `null` means something wrong at least. mostly error.
-            case matchedType !== null:
-                this.#errorHandler(matchedType);
+            default:
+                if (matchedType != null) {
+                    // mostly error, if `matchedType` is not null.
+                    this.#errorHandler(matchedType);
+                }
         }
     }
 };

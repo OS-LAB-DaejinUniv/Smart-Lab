@@ -38,26 +38,34 @@ class SCUserPref {
             for (const [taskName, enabled] of Object.entries(this.prefs)) {
                 switch (enabled.task.type) {
                     case 'request':
+                        // send request.
                         const resp = await fetch(enabled.task.endpoint, {
                             method: enabled.task.method || '',
                             headers: enabled.task.header || '',
                             body: enabled.task.body || ''
-                        }).then((res) => res.json());
+                        }).then(r => r.json());
 
                         // verify response includes expected attribute and value.
                         Object.keys(enabled.task.expected).forEach((attr) => {
                             if (!(`${resp[attr]}` == enabled.task.expected[attr])) {
+
                                 throw new Error(
-                                    `[SCUserPref.runTasks] response is differ as expected.\n`
+                                    `[SCUserPref.runTasks] response is differ from expected.\n`
                                     + `expected attr: ${attr}, value: ${enabled.task.expected[attr]}(expected) / ${resp[attr]}(got)`
                                 );
                             }
-                        })
+                        });
 
-                        console.log(`[SCUserPref.runTasks] ${taskName}`);
+                        console.log(`[SCUserPref.runTasks] processed: ${taskName}`);
+                        break;
+
+                    default:
+                        throw new Error(
+                            `[SCUserPref.runTasks] unsupported task type. only 'request' supported for now.`
+                        );
                 }
             }
-        
+
         } catch (err) {
             console.log(`[SCUserPref.runTasks] error: ${err}`);
         }

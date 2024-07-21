@@ -7,8 +7,8 @@
  * @version 0.1
  */
 
-const config = require('./config')
-const fs = require('fs')
+const config = require('./config');
+const fs = require('fs');
 
 class SCUserPref {
     static taskNames = fs.readdirSync(config.taskScriptDir)

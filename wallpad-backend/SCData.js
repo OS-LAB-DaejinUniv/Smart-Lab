@@ -5,8 +5,8 @@
  * @version 0.1
  */
 
-const SCUserPref = require('./SCUserPref')
-const DBException = require('./DBException')
+const SCUserPref = require('./SCUserPref');
+const DBException = require('./DBException');
 
 class SCData {
     constructor(dbConn, authedResp) {

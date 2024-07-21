@@ -6,8 +6,8 @@
  * @version 0.1
  */
 
-const query = require('./query')
-const DBException = require('./DBException')
+const query = require('./query');
+const DBException = require('./DBException');
 
 class DB {
     static isCreated = false;

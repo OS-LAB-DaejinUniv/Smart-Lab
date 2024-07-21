@@ -6,13 +6,13 @@
  * @version 0.1
  */
 
-const WallpadStatus = require('./WallpadStatus')
-const regexps = require('./regexps')
-const SCData = require('./SCData')
-const SCHisory = require('./SCHistory')
-const SCUserPref = require('./SCUserPref')
-const SCEvent = require('./SCEvent')
-const sfx = require('./sfx')
+const WallpadStatus = require('./WallpadStatus');
+const regexps = require('./regexps');
+const SCData = require('./SCData');
+const SCHisory = require('./SCHistory');
+const SCUserPref = require('./SCUserPref');
+const SCEvent = require('./SCEvent');
+const sfx = require('./sfx');
 
 class Wallpad {
     static isCreated = false;
@@ -79,7 +79,7 @@ class Wallpad {
             }
 
             if (Object.keys(userPref.prefs).length == 0) {
-                console.log(`[Wallpad.triggerRunTasks] no enabled tasks has found on the card.`);
+                console.log(`[Wallpad.triggerRunTasks] no enabled tasks found on the card.`);
                 return;
             }
 

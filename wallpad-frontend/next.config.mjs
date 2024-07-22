@@ -15,6 +15,10 @@ const nextConfig = {
 
     return config;
   },
+  images: {
+    domains: ["github.com"],
+    minimumCacheTTL: 10,
+  },
   async rewrites() {
     return [
       {

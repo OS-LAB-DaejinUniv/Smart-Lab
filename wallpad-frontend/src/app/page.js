@@ -146,6 +146,7 @@ export default function Home() {
                     position={ user.position }
                     status={ user.status }
                     emoji={ user.emoji }
+                    github={ user.github }
                     isDisabled={ user.status }
                   />
                 )

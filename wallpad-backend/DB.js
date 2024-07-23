@@ -19,7 +19,7 @@ class DB {
 
         if (dbConn.open) {
             this.db = dbConn;
-            
+
         } else {
             throw new DBException('', 'DBNotOpened');
         }
@@ -31,12 +31,12 @@ class DB {
                 .prepare(query.memberList)
                 .all();
 
-            if (row) 
+            if (row)
                 return row;
-            
-            else 
+
+            else
                 throw new Error();
-            
+
         } catch (err) {
             console.error(`[DB.selectMemberByUUID] SelectError`, err);
 
@@ -50,12 +50,12 @@ class DB {
                 .prepare(query.selectMember)
                 .get(uuid);
 
-            if (row) 
+            if (row)
                 return row;
-            
-            else 
+
+            else
                 throw new Error();
-            
+
         } catch (err) {
             console.error(`[DB.selectMemberByUUID] NotFoundUser`);
 
@@ -77,11 +77,13 @@ class DB {
                 .prepare(query.addHistory)
                 .run(uuid, status, at.getTime());
 
-            if (updateStatusRes.changes == 1 == insHistoryRes.changes)
+            if (updateStatusRes.changes == 1 == insHistoryRes.changes) {
+                console.log(`[DB.updateUserStatus] updated successfully. ${uuid}, stat.: ${status}, at: ${at.getTime()}`);
                 return true;
 
-            else
+            } else {
                 throw new Error();
+            }
 
         } catch (err) {
             console.error(`[DB.updateUserStatus] error(s) occured. details: ${err}`);

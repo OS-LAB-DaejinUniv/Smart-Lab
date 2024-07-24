@@ -1,9 +1,10 @@
-/*
-알림 컴포넌트
-파라미터 설명
-type:        알림의 종류
-name:        이름(본문에서 필요한 경우에만 전달)
-*/
+/**
+ * @brief Notification window overlay component.
+ * @author Jay Kang
+ * @date July 23, 2024
+ * @version 0.1
+ */
+
 const NotifyWindow = ({ type, name }) => {
   const title = {
     'notosid': '지원하지 않는 카드에요',

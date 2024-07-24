@@ -2,6 +2,19 @@
   "name": "oslab-wallpad-fe",
   "version": "0.1.0",
   "private": true,
+  "config": {
+    "title": "리눅스 클라우드 컴퓨팅 심화 실습실",
+    "socketio": "http://localhost:5000",
+    "UILang": "ko",
+    "webUILogin": {
+      "username": "smartlab",
+      "password": "wallpad",
+      "permitConcurrentLogin": false,
+      "allowedIPs": [
+        "0.0.0.0"
+      ]
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,6 +28,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-icons": "^5.2.1",
+    "react-loading-skeleton": "^3.4.0",
     "serialport": "^12.0.0",
     "socket.io-client": "^4.7.5",
     "styled-components": "^6.1.11"

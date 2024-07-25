@@ -1,0 +1,25 @@
+{
+    "main": {
+        "date": ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
+        "section_ad": "Latest news",
+        "section_nfc": "Please scan your ID here."
+    },
+    "nofitication": {
+        "title": {
+            "notosid": "Card not supported.",
+            "crypto": "Invalid ID card.",
+            "rfLost": "Communication aborted.",
+            "arrival": "Check-in complete!",
+            "goHome": "Successfully clocked out!",
+            "NotFoundUser": "You're not registered on the system."
+        },
+        "message": {
+            "notosid": "Please check your card and try again.",
+            "crypto": "The applet status on your card is invalid. Please contact your department administrator.",
+            "rfLost": "Please hold your card against the reader a little longer.",
+            "arrival": ": You've checked in!",
+            "goHome": ": You've clocked out!",
+            "NotFoundUser": "Unregistered smart card. Please contact your department administrator."
+        }
+    }
+}

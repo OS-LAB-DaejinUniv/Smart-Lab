@@ -68,6 +68,11 @@ export default function Home() {
       setMemberStatus(userData);
     });
 
+    socket.on('reqFrontendRefresh', () => {
+      console.log('Page is being refreshed now..');
+      location.reload();
+    });
+
     socket.emit('getMemberStat');
 
     return () => {
@@ -144,7 +149,11 @@ export default function Home() {
               }
 
               return memberStatus.map((user, index) => {
-                if (user.isSkeleton) return <ProfileSkeleton />
+                if (user.isSkeleton) return (
+                  <ProfileSkeleton
+                    key={`${Math.random()}`}
+                  />
+                )
 
                 return (
                   <Profile

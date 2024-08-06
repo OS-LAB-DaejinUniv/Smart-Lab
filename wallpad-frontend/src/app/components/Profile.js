@@ -23,7 +23,7 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { 
   return (
     <>
       <div
-        className={`flex flex-col justify-between bg-[#f2f4f6] w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.8rem] pb-[.95rem] ${textColor}`}>
+        className={`flex flex-col justify-between bg-[#f2f4f6] w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.9rem] pb-[.95rem] ${textColor}`}>
 
         <div>
           <div className='flex flex-col'>

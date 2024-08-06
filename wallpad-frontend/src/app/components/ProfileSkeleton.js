@@ -17,7 +17,7 @@ const ProfileSkeleton = () => {
         <div>
           <div className='flex flex-col'>
             <Skeleton className='mb-1.5' />
-            <Skeleton />
+            <Skeleton style={{ width: '64px' }}/>
           </div>
         </div>
         <div className='flex w-full justify-end'>

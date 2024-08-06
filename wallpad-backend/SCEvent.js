@@ -1,7 +1,15 @@
-// socket.io를 통해 프론트엔드에 전달할 카드 태그 이벤트 객체 정의
+/**
+ * @brief An card tag event data class that includes what information should be seen on screen. 
+ * @details Includes status, name, why (reason of the event). Frontend shows notification window based on this info.
+ * @author Jay Kang
+ * @date July 23, 2024
+ * @version 0.1
+ */
+
 class SCEvent {
-    constructor (status, name, why) {
-        this.eventFired = true;
+    constructor (status, name, why, duration = 3000) {
+        // defines how long notification window lasts on the page.
+        this.duration = duration;
 
         this.status = status || null;
         this.name = name || null;

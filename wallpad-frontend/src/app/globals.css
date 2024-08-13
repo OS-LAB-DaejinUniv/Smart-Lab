@@ -116,3 +116,8 @@ img {
 	height: 2.25rem !important;
 	bottom: 0;
 }
+
+.noti-clock {
+	width: 1rem !important;
+	height: 1rem !important;
+}

@@ -11,6 +11,7 @@ const config = {
         }
     },
     taskScriptDir: './SCUserPrefTasks/',
+    nextCacheDir: '../wallpad-frontend/.next/cache',
     dbPath: 'wallpad.db',
     dbConf: {
         fileMustExist: true

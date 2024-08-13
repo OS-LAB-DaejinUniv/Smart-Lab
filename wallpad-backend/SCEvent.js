@@ -7,13 +7,16 @@
  */
 
 class SCEvent {
-    constructor (status, name, why, duration = 3000) {
+    constructor ({ status, name, why, duration = 3000, timesTaken }) {
         // defines how long notification window lasts on the page.
         this.duration = duration;
 
         this.status = status || null;
         this.name = name || null;
         this.why = why || null;
+
+        // total hours of working / taken to return.
+        this.timesTaken = timesTaken;
 
         if (this.status == null) {
             throw new Error('`status` must be given for SCEvent.');

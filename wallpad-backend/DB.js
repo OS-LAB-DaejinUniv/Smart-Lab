@@ -8,6 +8,7 @@
 
 const query = require('./query');
 const DBException = require('./DBException');
+const TimeDiff = require('./utils/TimeDiff');
 
 class DB {
     static isCreated = false;
@@ -89,6 +90,44 @@ class DB {
             console.error(`[DB.updateUserStatus] error(s) occured. details: ${err}`);
 
             throw new DBException('', 'QueryFailed');
+        }
+    }
+
+    getHoursToReturn(uuid) {
+        try {
+            const row = (this.db)
+                .prepare(query.getLastOut)
+                .get(uuid);
+
+            if (!row) {
+                return { isFirst: true };
+            }
+
+            const lastCheckoutAt = row.at;
+
+            return new TimeDiff(lastCheckoutAt);
+
+        } catch (err) {
+            console.error(`[DB.getHoursToReturn] error(s) occured. details: ${err}`);
+        }
+    }
+
+    getTodayWorkingHours(uuid) {
+        try {
+            const row = (this.db)
+                .prepare(query.getLastIn)
+                .get(uuid);
+
+            if (!row) {
+                return { isFirst: true };
+            }
+
+            const lastCheckinAt = row.at; 
+
+            return new TimeDiff(lastCheckinAt);
+
+        } catch (err) {
+            console.error(`[DB.getTodayWorkingHours] error(s) occured. details: ${err}`);
         }
     }
 };

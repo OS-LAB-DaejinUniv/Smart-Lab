@@ -25,18 +25,11 @@ export default function Home() {
     isSkeleton: true
   }));
 
-  // notification windows lasts as much as the value of `duration` property of the event SCEvent object defines.
-  useEffect(() => {
-    console.log('noti_left ' + notifyLeftTime);
-
-    if (notifyLeftTime > 0) {
-      setTimeout(() => {
-        setNotifyLeftTime(0);
-        console.log('noti_decreased ' + notifyLeftTime);
-      }, notifyLeftTime);
-    }
-
-  }, [notifyLeftTime]);
+  const showNotification = (duration) => {
+    setNotifyLeftTime(
+      new Date().getTime() + duration
+    );
+  };
 
   /* ========== start socket.io setup ========== */
   useEffect(() => {
@@ -53,14 +46,14 @@ export default function Home() {
       console.log(`[SCEvent] duration: ${data.duration}, name: ${data.name}, status: ${data.status}`);
       socket.emit('getMemberStat');
       setNotifyStatus(data);
-      setNotifyLeftTime(notifyLeftTime + data.duration);
+      showNotification(data.duration);
 
     });
 
     socket.on('error', error => {
       console.error(`[SCEvent] duration: ${error.duration}, name: ${error.name}, status: ${error.status}`);
       setNotifyStatus(error);
-      setNotifyLeftTime(notifyLeftTime + error.duration);
+      showNotification(error.duration);
     });
 
     socket.on('getMemberStatResp', (userData) => {
@@ -115,11 +108,12 @@ export default function Home() {
     <>
       {(() => {
         // notification window section.
-        if (notifyLeftTime > 0)
+        if (new Date().getTime() <= notifyLeftTime)
           return (
             <NotifyWindow
               type={notifyStatus.status}
               name={notifyStatus.name || null}
+              timesTaken={notifyStatus.timesTaken}
             />
           );
       })()}

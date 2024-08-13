@@ -2,14 +2,16 @@ const config = require('./config');
 const Wallpad = require('./Wallpad');
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { SerialPort } = require('serialport');
 const { autoDetect } = require('@serialport/bindings-cpp');
 const Database = require('better-sqlite3');
 const DB = require('./DB');
 const dbconn = new Database(config.dbPath, config.dbConf);
 const { Server } = require('socket.io');
-const app = express();
-app.use(express.json({ extended: true }));
+const app = express()
+	.use(express.json());
 const server = http.createServer(app);
 
 // init wallpad
@@ -64,12 +66,33 @@ const server = http.createServer(app);
 	});
 
 	app.post('/wallpad/refresh', (req, res) => {
-		const { isDeleteCache } = req.body;
-		console.log('body', isDeleteCache);
+		const { rmcache } = req.body;
+
 		console.log('Got a HTTP request: /wallpad/refresh');
 
-		io.emit('reqFrontendRefresh');
-		res.json({ status: true });
+		try {
+			if (rmcache) {
+				fs.rmSync(path.resolve(config.nextCacheDir), {
+					recursive: true,
+					force: true
+				});
+				console.log('flushed next cache.');
+			}
+
+			io.emit('reqFrontendRefresh');
+			res.json({
+				status: true
+			});
+
+		} catch (err) {
+			console.error('failed to flush next cache: ', err);
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+
 	});
 
 	// belows are callbacks for cleanup.

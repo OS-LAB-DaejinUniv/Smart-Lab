@@ -45,35 +45,58 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
           className="text-base pt-2"
         >{(name || '') + message[type]}</p>
         {
-          (timesTaken => {
-            const text = ((timesTaken) => {
+          (() => {
+            if (timesTaken == undefined) return;
+            
+            const timesTakenMessage = (() => {
               // if user has no usage history.
               if (timesTaken.isFirst) {
-                return '앞으로의 연구실 활동을 응원해요!';
+                return '앞으로의 연구실 활동을 응원할게요!';
               }
-
+              
               const isDaysNotZero = (timesTaken.day > 0);
               const isHoursNotZero = (timesTaken.hour > 0);
-
-              if (!isDaysNotZero && !isHoursNotZero) {
+              
+              // 1. only `day` overs 1.
+              if (isDaysNotZero && !isHoursNotZero) {
+                return `${timesTaken.day}일만에 ${timesTakenCaption[type]}했어요.`;
+              }
+              
+              // 2. only `hour` overs 1.
+              else if (!isDaysNotZero && isHoursNotZero) {
+                return `${timesTaken.hour}시간만에 ${timesTakenCaption[type]}했어요.`;
+              }
+              
+              // 3. both `day` and `hour` are overs 1.
+              else if (isDaysNotZero && isHoursNotZero) {
+                return `${timesTaken.day}일 ${timesTaken.hour}시간만에 ${timesTakenCaption[type]}했어요.`;
+              }
+              
+              // if both `days` and `hour` are 0.
+              else if (!isDaysNotZero && !isHoursNotZero) {
                 return null;
               }
-
-              return `${timesTaken.day}`;
             })();
-
-            return (
-              <p className="text-base flex pt-2">
-                <Image
-                  src="/emoji/eight_oclock.png"
-                  className="rounded-full noti-clock items-center"
-                  width={32}
-                  height={32}
-                  key="clock_icon"
-                />
-                {(JSON.stringify(timesTaken) || '')}
-              </p>
-            )
+            console.log(timesTakenMessage);
+            
+            if (timesTakenMessage !== null) {
+              return (
+                <p className="text-base font-semibold text-[#3182F6] items-center flex">
+                  <Image
+                    src={
+                      `/emoji/${timesTaken.isFirst ?
+                        'party_popper' :
+                        'eight_oclock'}.png`
+                    }
+                    className="rounded-full noti-clock mr-1"
+                    width={64}
+                    height={64}
+                    key="clock_icon"
+                  />
+                  { timesTakenMessage }
+                </p>
+              )
+            }
           })()
         }
       </div>
@@ -81,4 +104,4 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
   )
 }
 
-export default NotifyWindow
+export default NotifyWindow;

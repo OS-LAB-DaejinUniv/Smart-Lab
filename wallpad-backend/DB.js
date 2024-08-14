@@ -100,12 +100,17 @@ class DB {
                 .get(uuid);
 
             if (!row) {
-                return { isFirst: true };
+                return {
+                    isFirst: true
+                };
             }
 
             const lastCheckoutAt = row.at;
 
-            return new TimeDiff(lastCheckoutAt);
+            return {
+                ...new TimeDiff(lastCheckoutAt),
+                isFirst: false
+            };
 
         } catch (err) {
             console.error(`[DB.getHoursToReturn] error(s) occured. details: ${err}`);
@@ -119,12 +124,17 @@ class DB {
                 .get(uuid);
 
             if (!row) {
-                return { isFirst: true };
+                return {
+                    isFirst: true
+                };
             }
 
-            const lastCheckinAt = row.at; 
+            const lastCheckinAt = row.at;
 
-            return new TimeDiff(lastCheckinAt);
+            return {
+                ...new TimeDiff(lastCheckinAt),
+                isFirst: false
+            };
 
         } catch (err) {
             console.error(`[DB.getTodayWorkingHours] error(s) occured. details: ${err}`);

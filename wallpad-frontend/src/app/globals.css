@@ -9,7 +9,7 @@ main, notify-content {
 * {
     white-space: pre-wrap;
     line-height: 100%;
-	color: #2A2C33;
+	color: #191f28;
 	cursor: none;
 }
 html, body, div, span, applet, object, iframe,
@@ -64,29 +64,7 @@ img {
 .animation-pulse {
 	animation: pulse-keyframe 2.9s infinite;
 }
-.project {
-    display: flex;
-    justify-content: center;
-    width: auto;
-    padding: 5rem;
-}
-.project .carousel {
-    background: coral;
-    width: 500px;
-    height: 500px;
-    overflow: hidden;
-}
-.project .carousel .carouselBox {
-    display: flex;
-}
-.project .carousel .carouselBox .carouselItem {
-    width: 500px;
-    height: 500px;
-    background-position: 50% 50%;
-    background-size: contain;
-    background-repeat: no-repeat;
-    flex: none;
-}
+
 @keyframes pulse-keyframe {
 	from {
 		animation-timing-function: ease-in-out;
@@ -94,12 +72,11 @@ img {
 		opacity: 0.5;
 	}
 	to {
-		transform: scale(11.5);
+		transform: scale(10);
 		opacity: 0;
 	}	
 }
 
-.notify-background {}
 .notify-content {
 	top: 3%;
 	left: 50%;
@@ -118,6 +95,6 @@ img {
 }
 
 .noti-clock {
-	width: 1rem !important;
-	height: 1rem !important;
+	width: 1.1rem !important;
+	height: 1.1rem !important;
 }

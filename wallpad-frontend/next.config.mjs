@@ -20,6 +20,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'github.com'
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost'
       }
     ],
     minimumCacheTTL: 10,

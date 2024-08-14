@@ -6,19 +6,15 @@ import React, { useState, useEffect } from 'react';
 import Profile from './components/Profile';
 import ProfileSkeleton from './components/ProfileSkeleton';
 import NotifyWindow from './components/NotifyWindow';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+import Advertisement from './components/Advertisement';
+import AdvertisementSkeleton from './components/AdvertisementSkeleton';
 import io from 'socket.io-client';
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
   let [notifyLeftTime, setNotifyLeftTime] = useState(0);
   let [socketStatus, setSocketStatus] = useState(false);
-  const transitionRate = 8000;
   let socket = null;
-
-  const adPagesMax = 2;
-  let [currentAdPage, setCurrentAdPage] = useState(1);
 
   // state variable which has current member object array to show.
   let [memberStatus, setMemberStatus] = useState(Array(9).fill({
@@ -74,17 +70,6 @@ export default function Home() {
   }, []);
   /* ========== end socket.io setup ========== */
 
-  // make ad image to be changed automatically. 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      currentAdPage < adPagesMax
-        ? setCurrentAdPage(currentAdPage + 1)
-        : setCurrentAdPage(1);
-    }, transitionRate)
-
-    return () => clearInterval(interval)
-  }, [currentAdPage, adPagesMax])
-
   // retrieve current time.
   const [clock, setClock] = useState('00:00:00');
 
@@ -121,7 +106,7 @@ export default function Home() {
         <section>
           {/* the section that shows logo, datetime and advertisement. */}
           <section className='flex justify-between'>
-            <Image src='/logo.png' width={185} height={0} />
+            <Image src='/logo.png' width={180} height={0} />
             <div className='flex flex-col items-end'>
               <p className={'text-xl font-semibold tabular-nums'}>
                 {(() => `${clock}`)()}
@@ -166,14 +151,9 @@ export default function Home() {
           </div>
 
           <p className='text-2xl font-bold mt-7 mb-3'>연구실 소식</p>
-          <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[9.5rem]'>
-            <Image
-              src={`/ad/ad${currentAdPage}.png`}
-              width='1366'
-              height='0'
-              alt='ad'
-            />
-          </div>
+          {
+            socketStatus ? <Advertisement /> : <AdvertisementSkeleton />
+          }
         </section>
 
         <footer>
@@ -185,7 +165,7 @@ export default function Home() {
                 (() => {
                   return socketStatus ?
                     '이곳에 ID 카드를 대주세요' :
-                    '서비스가 시작되는 동안 잠시 기다려 주세요'
+                    '시작하는 동안 잠시만 기다려 주세요'
                 })()
               }
             </p>

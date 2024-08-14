@@ -1,6 +1,7 @@
 {
     "name": "unlockDoorLock",
     "description": "카드 태그시 도어락 해제",
+    "wallpadMessage": "도어락 잠금을 해제했어요.",
     "index": 0,
     "task": {
         "type": "request",

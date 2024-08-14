@@ -10,9 +10,16 @@ const Database = require('better-sqlite3');
 const DB = require('./DB');
 const dbconn = new Database(config.dbPath, config.dbConf);
 const { Server } = require('socket.io');
-const app = express()
-	.use(express.json());
+const app = express();
 const server = http.createServer(app);
+
+// express middlewares
+app.use(express.json());
+app.use((req, res, next) => {
+	res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
+	next();
+});
 
 // init wallpad
 (async () => {
@@ -65,6 +72,7 @@ const server = http.createServer(app);
 		});
 	});
 
+	// belows are express api handlers.
 	app.post('/wallpad/refresh', (req, res) => {
 		const { rmcache } = req.body;
 
@@ -76,7 +84,7 @@ const server = http.createServer(app);
 					recursive: true,
 					force: true
 				});
-				console.log('flushed next cache.');
+				console.log('flushed next.js cache.');
 			}
 
 			io.emit('reqFrontendRefresh');
@@ -92,8 +100,50 @@ const server = http.createServer(app);
 				reason: err
 			})
 		}
-
 	});
+
+	/* APIs related to wallpad advertisement. */
+	
+	// 1. get ad image list.
+	app.get('/wallpad/ad/list', (req, res) => {
+		try {
+			const adConfig = (() => {
+				const filePath = path.resolve(config.adImageDir, 'config.json');
+				const file = fs.readFileSync(filePath).toString();
+
+				return JSON.parse(file);
+			})();
+	
+			res.json(adConfig);
+	
+		} catch (err) {
+			console.error(`[getAdConfig] ${err}`);
+
+			res.json(err);
+		}
+	});
+
+	// 2. get specific ad image.
+	app.get('/wallpad/ad/:imageId(*)', (req, res) => {
+		try {
+			const imageId = req.params.imageId;
+			console.log('[getImageById]', imageId);
+
+			res.setHeader('Content-type', 'image/png');
+
+			res.sendFile(
+				path.resolve(config.adImageDir, imageId) + '.png'
+			);
+
+		} catch (err) {
+			console.error(`[getImageById] ${err}`);
+
+			res.status(500);
+			res.json(err);
+		}
+	});
+
+
 
 	// belows are callbacks for cleanup.
 	process.on('exit', () => db.close());

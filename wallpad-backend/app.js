@@ -103,7 +103,7 @@ app.use((req, res, next) => {
 	});
 
 	/* APIs related to wallpad advertisement. */
-	
+
 	// 1. get ad image list.
 	app.get('/wallpad/ad/list', (req, res) => {
 		try {

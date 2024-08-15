@@ -5,6 +5,7 @@
  * @version 0.1
  */
 
+import React, { memo } from 'react';
 import Image from 'next/image';
 
 const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { // emoji used as fallback of profile image.
@@ -75,4 +76,4 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { 
   )
 }
 
-export default Profile;
+export default memo(Profile);

@@ -5,6 +5,7 @@
  * @version 0.1
  */
 
+import { memo } from 'react';
 import Image from 'next/image';
 
 const NotifyWindow = ({ type, name, timesTaken }) => {
@@ -77,7 +78,7 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
                 return null;
               }
             })();
-            console.log(timesTakenMessage);
+            // console.log('[NotifyWindow.js] generated message:', timesTakenMessage);
             
             if (timesTakenMessage !== null) {
               return (
@@ -104,4 +105,4 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
   )
 }
 
-export default NotifyWindow;
+export default memo(NotifyWindow);

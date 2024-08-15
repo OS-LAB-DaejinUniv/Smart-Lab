@@ -12,6 +12,7 @@ import io from 'socket.io-client';
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
+  const [clock, setClock] = useState('00:00:00');
   let [notifyLeftTime, setNotifyLeftTime] = useState(0);
   let [socketStatus, setSocketStatus] = useState(false);
   let socket = null;
@@ -36,14 +37,17 @@ export default function Home() {
       }
     });
 
-    socket.on('connect', () => setSocketStatus(true));
+    socket.on('connect', () => {
+      console.log('successfully connected to socket.io server.');
+      socket.emit('getMemberStat');
+      setSocketStatus(true);
+    });
 
     socket.on('success', data => {
       console.log(`[SCEvent] duration: ${data.duration}, name: ${data.name}, status: ${data.status}`);
       socket.emit('getMemberStat');
       setNotifyStatus(data);
       showNotification(data.duration);
-
     });
 
     socket.on('error', error => {
@@ -52,7 +56,7 @@ export default function Home() {
       showNotification(error.duration);
     });
 
-    socket.on('getMemberStatResp', (userData) => {
+    socket.on('getMemberStatResp', userData => {
       console.log(userData);
       setMemberStatus(userData);
     });
@@ -62,16 +66,11 @@ export default function Home() {
       location.reload();
     });
 
-    socket.emit('getMemberStat');
-
     return () => {
       if (socket) socket.disconnect();
     }
   }, []);
   /* ========== end socket.io setup ========== */
-
-  // retrieve current time.
-  const [clock, setClock] = useState('00:00:00');
 
   // make time goes..
   setInterval(() => {
@@ -86,8 +85,7 @@ export default function Home() {
   // retrieve current date.
   const today = new Date();
   const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
-  const formattedDate = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}. (${weekDay[today.getDay()]
-    })`
+  const formattedDate = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}. (${weekDay[today.getDay()]})`;
 
   return (
     <>

@@ -4,6 +4,7 @@ const express = require('express');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const { SerialPort } = require('serialport');
 const { autoDetect } = require('@serialport/bindings-cpp');
 const Database = require('better-sqlite3');
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use((req, res, next) => {
 	res.setHeader('Access-Control-Allow-Origin', '*');
 	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 	next();
 });
 
@@ -49,7 +51,7 @@ app.use((req, res, next) => {
 	// passes all serialport event to wallpad.
 	arduino.on('data', data => wallpad.serialEventHandler(data));
 
-	server.listen(config.socketioConf.port, () => {
+	server.listen(config.socketioConf.port, "0.0.0.0", () => {
 		console.log(`Started Socket.IO server on port ${config.socketioConf.port}.`);
 	});
 
@@ -113,9 +115,9 @@ app.use((req, res, next) => {
 
 				return JSON.parse(file);
 			})();
-	
+
 			res.json(adConfig);
-	
+
 		} catch (err) {
 			console.error(`[getAdConfig] ${err}`);
 
@@ -143,7 +145,32 @@ app.use((req, res, next) => {
 		}
 	});
 
+	// wallpad managment console login
+	app.post('/wallpad/managment/signin', (req, res) => {
+		try {
+			const { username, password } = req.body;
+			const accessIP = req.ip;
 
+			res.cookie('jwt',
+				jwt.sign(
+					{ username, accessIP },
+					config.webUICreds.jwtSecret,
+					{ expiresIn: '1h' })
+				, {
+					maxAge: 3600,
+					httpOnly: true,
+					sameSite: 'none'
+				}
+			);
+			res.json({ status: true })
+
+		} catch (err) {
+			console.log('[mgmtSignin] signin failed:', err);
+
+			res.status(500);
+			res.json({ status: false });
+		}
+	})
 
 	// belows are callbacks for cleanup.
 	process.on('exit', () => db.close());

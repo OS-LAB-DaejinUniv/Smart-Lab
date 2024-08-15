@@ -5,15 +5,8 @@
   "config": {
     "title": "리눅스 클라우드 컴퓨팅 심화 실습실",
     "socketio": "http://localhost:5000",
-    "UILang": "ko",
-    "webUILogin": {
-      "username": "smartlab",
-      "password": "wallpad",
-      "permitConcurrentLogin": false,
-      "allowedIPs": [
-        "0.0.0.0"
-      ]
-    }
+    "socketioPort": 5000,
+    "UILang": "ko"
   },
   "scripts": {
     "dev": "next dev",
@@ -22,8 +15,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
     "axios": "^1.7.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "file-loader": "^6.2.0",
+    "jsonwebtoken": "^9.0.2",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
@@ -31,7 +29,9 @@
     "react-loading-skeleton": "^3.4.0",
     "serialport": "^12.0.0",
     "socket.io-client": "^4.7.5",
-    "styled-components": "^6.1.11"
+    "styled-components": "^6.1.11",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "eslint": "^8",

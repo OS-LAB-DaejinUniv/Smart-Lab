@@ -10,6 +10,15 @@ const config = {
             methods: ["GET", "POST"]
         }
     },
+    webUICreds: {
+        username: "admin",
+        password: "password",
+        jwtSecret: "change-this-secret-to-yours",
+        permitConcurrentLogin: false,
+        allowedIPs: [
+            "0.0.0.0"
+        ]
+    },
     taskScriptDir: './SCUserPrefTasks/',
     nextCacheDir: '../wallpad-frontend/.next/cache',
     adImageDir: './assets/ad',

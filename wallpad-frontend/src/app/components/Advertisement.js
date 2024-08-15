@@ -96,6 +96,7 @@ const Advertisement = () => {
 
         return (
             <div className='relative bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+                {/* page indicator */}
                 <p className={`absolute font-semibold text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full px-1.5 right-[.7rem] top-[.6rem] ${isError ? 'hidden' : ''}`}>
                     {currentIndex + 1}
                     <span
@@ -107,6 +108,7 @@ const Advertisement = () => {
                     </span>
                 </p>
                 {
+                    // ad image
                     (() => {
                         const imageURL = new URL(
                             `/wallpad/ad/${adList[currentIndex]}`, backendURL

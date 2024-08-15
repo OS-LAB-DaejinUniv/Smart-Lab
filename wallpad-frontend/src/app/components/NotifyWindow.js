@@ -19,7 +19,7 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
   };
 
   const message = {
-    'notosid': 'OS랩 카드가 아닌 것 같네요. 카드를 확인하고 다시 시도해 주세요.',
+    'notosid': '올바른 카드인지 확인하고 다시 시도해 주세요.',
     'crypto': '애플릿의 상태가 올바르지 않아요. 담당 부원에게 문의해 주세요.',
     'rfLost': '카드를 조금만 더 오래 태그해 주세요.',
     'arrival': '님의 상태를 재실 상태로 변경했어요.',
@@ -38,7 +38,7 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
         className='w-full h-full top-0 fixed z-20 bg-slate-950 opacity-30 notify-background'>
       </div>
       <div
-        className="bg-white w-[94%] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
+        className="bg-white w-[90%] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
         <p
           className="text-xl font-bold"
         >{title[type]}</p>

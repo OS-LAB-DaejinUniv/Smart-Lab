@@ -127,7 +127,7 @@ app.use((req, res, next) => {
 	app.get('/wallpad/ad/:imageId(*)', (req, res) => {
 		try {
 			const imageId = req.params.imageId;
-			console.log('[getImageById]', imageId);
+			// console.log('[getImageById]', imageId);
 
 			res.setHeader('Content-type', 'image/png');
 

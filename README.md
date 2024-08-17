@@ -2,8 +2,8 @@ Project SmartLab
 ===
 
 <div>
-<img src="preview1.png" width="216" height="384">
-<img src="preview2.png" width="216" height="384">
+<img src="preview1.png" width="286" height="485">
+<img src="preview2.png" width="286" height="485">
 </div>
 
 📌 개요

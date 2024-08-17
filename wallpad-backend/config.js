@@ -14,6 +14,7 @@ const config = {
         username: "admin",
         password: "password",
         jwtSecret: "change-this-secret-to-yours",
+        frontendPort: 3000,
         permitConcurrentLogin: false,
         allowedIPs: [
             "0.0.0.0"

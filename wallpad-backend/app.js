@@ -17,7 +17,14 @@ const server = http.createServer(app);
 // express middlewares
 app.use(express.json());
 app.use((req, res, next) => {
-	res.setHeader('Access-Control-Allow-Origin', '*');
+	const originHeader = req.header('origin');
+
+	if (originHeader) {
+		const changedOrigin = new URL(originHeader);
+		changedOrigin.port = config.webUICreds.frontendPort;
+		res.setHeader('Access-Control-Allow-Origin', changedOrigin.origin);
+	}
+
 	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
 	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 	next();
@@ -55,7 +62,7 @@ app.use((req, res, next) => {
 		console.log(`Started Socket.IO server on port ${config.socketioConf.port}.`);
 	});
 
-	// belows are websocket api handlers.
+	// ** belows are websocket api handlers. **
 	io.on('connection', (wallpad) => {
 		console.log('Wallpad frontend has connected.');
 
@@ -74,7 +81,7 @@ app.use((req, res, next) => {
 		});
 	});
 
-	// belows are express api handlers.
+	// ** belows are http api handlers. **
 	app.post('/wallpad/refresh', (req, res) => {
 		const { rmcache } = req.body;
 
@@ -145,27 +152,52 @@ app.use((req, res, next) => {
 		}
 	});
 
-	// wallpad managment console login
-	app.post('/wallpad/managment/signin', (req, res) => {
+	// wallpad management console login
+	app.post('/wallpad/management/signin', (req, res) => {
 		try {
+			const [corrUsername, corrPassword] = [config.webUICreds.username, config.webUICreds.password];
 			const { username, password } = req.body;
-			const accessIP = req.ip;
+			const accessip = req.ip;
 
-			res.cookie('jwt',
-				jwt.sign(
-					{ username, accessIP },
-					config.webUICreds.jwtSecret,
-					{ expiresIn: '1h' })
-				, {
-					maxAge: 3600,
-					httpOnly: true,
-					sameSite: 'none'
-				}
-			);
-			res.json({ status: true })
+			if ((username != corrUsername) || (password != corrPassword)) {
+				res.status(401);
+				res.json({ status: false });
+				return;
+			}
+
+			const token = jwt.sign(
+				{ username, accessip },
+				config.webUICreds.jwtSecret,
+				{ expiresIn: '30m' });
+
+			res.json({ status: true, token });
 
 		} catch (err) {
 			console.log('[mgmtSignin] signin failed:', err);
+
+			res.status(500);
+			res.json({ status: false });
+		}
+	});
+
+	// returns validity of token.
+	app.get('/wallpad/management/token/verify', (req, res) => {
+		try {
+			const userToken = req.query.token || null;
+			
+			jwt.verify(userToken, config.webUICreds.jwtSecret, (err) => {
+				if (!err) {
+					res.json({ status: true });
+
+				} else {
+					res.status(401);
+					res.json({ status: false });
+				}
+			});
+
+
+		} catch (err) {
+			console.log('[verifyManagementToken] error:', err);
 
 			res.status(500);
 			res.json({ status: false });

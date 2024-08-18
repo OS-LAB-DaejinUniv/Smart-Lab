@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const { SerialPort } = require('serialport');
 const { autoDetect } = require('@serialport/bindings-cpp');
 const Database = require('better-sqlite3');
+const { execSync } = require('child_process');
 const DB = require('./DB');
 const dbconn = new Database(config.dbPath, config.dbConf);
 const { Server } = require('socket.io');
@@ -28,6 +29,28 @@ app.use((req, res, next) => {
 	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
 	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 	next();
+});
+app.use((req, res, next) => {
+	try {
+		const { token } = req.body;
+
+		jwt.verify(token, config.webUICreds.jwtSecret, (err) => {
+			if (!err) {
+				req.authed = true;
+
+			} else {
+				req.authed = false;
+			}
+		});
+
+		next();
+
+	} catch (err) {
+		console.error('[tokenValidator] error:', err);
+
+		res.status(500);
+		res.json({ status: false, reason: 'tokenValidatorError' });
+	}
 });
 
 // init wallpad
@@ -83,11 +106,13 @@ app.use((req, res, next) => {
 
 	// ** belows are http api handlers. **
 	app.post('/wallpad/refresh', (req, res) => {
-		const { rmcache } = req.body;
-
 		console.log('Got a HTTP request: /wallpad/refresh');
-
+		
 		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			const { rmcache } = req.body;
+			
 			if (rmcache) {
 				fs.rmSync(path.resolve(config.nextCacheDir), {
 					recursive: true,
@@ -102,7 +127,29 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to flush next cache: ', err);
+			console.error('failed to flush next cache: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// reboot wallpad
+	app.post('/wallpad/reboot', (req, res) => {
+		console.log('Got a HTTP request: /wallpad/reboot');
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+			
+			execSync('sudo reboot');
+			res.json({
+				status: true
+			});
+
+		} catch (err) {
+			console.error('failed to run reboot command: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -184,7 +231,7 @@ app.use((req, res, next) => {
 	app.get('/wallpad/management/token/verify', (req, res) => {
 		try {
 			const userToken = req.query.token || null;
-			
+
 			jwt.verify(userToken, config.webUICreds.jwtSecret, (err) => {
 				if (!err) {
 					res.json({ status: true });

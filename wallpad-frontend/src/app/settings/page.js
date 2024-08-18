@@ -11,8 +11,28 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
 import './page.css';
+
+function signoutHandler() {
+    if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('token');
+        window.location.hash = '';
+        window.location.reload();
+    }
+};
 
 export default function Router() {
     const requestHash = useHash();
@@ -97,7 +117,7 @@ function Home() {
         },
         '#card': {
             name: '스마트카드',
-            desc: '부원의 스마트카드를 추가, 삭제 또는 재발급 할 수 있어요.'
+            desc: '부원의 스마트카드를 등록 또는 삭제하거나 변경할 수 있어요.'
         },
         '#ad': {
             name: '연구실 소식',
@@ -113,14 +133,6 @@ function Home() {
         },
     };
 
-    function signoutHandler() {
-        if (typeof window !== 'undefined') {
-            window.localStorage.removeItem('token');
-            window.location.hash = '';
-            window.location.reload();
-        }
-    };
-
     return (
         <>
             <div className="flex flex-col items-center w-full">
@@ -129,7 +141,7 @@ function Home() {
                     <div className="flex">
                         <Button
                             variant="ghost"
-                            className="font-semibold"
+                            className="font-semibold active:bg-gray-200"
                             onClick={signoutHandler}>
                             로그아웃
                         </Button>
@@ -143,9 +155,8 @@ function Home() {
                                     <a
                                         key={menu}
                                         href={menu}
-                                        className={`inline-flex items-center justify-left rounded-md text-sm hover:text-accent-foreground w-full h-10 px-4 py-2 font-semibold ` +
-                                            `${hash == menu ? 'bg-accent' : 'hover:bg-accent hover:underline'}`}
-                                    >
+                                        className={`inline-flex items-center justify-left rounded-md text-sm hover:text-accent-foreground w-full h-10 px-4 py-2 font-semibold active:bg-gray-200 ` +
+                                            `${hash == menu ? 'bg-accent' : 'hover:bg-accent hover:underline'}`}>
                                         {hashList[menu].name}
                                     </a>
                                 )
@@ -177,36 +188,132 @@ function Home() {
 
 // contents of the section `#system`.
 function SystemSection() {
-    return (
-        <div className='flex flex-col space-y-3'>
-            <div>
-                <Label className="font-medium">
-                    캐시 삭제 및 새로고침
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
-                    설정을 변경했는데도 화면이 변경되지 않으면 화면을 새로고침해 보세요.
-                </p>
-                <Button
-                    className="text-slate-50 font-semibold mr-2 my-2 h-9 w-fit">
-                    onClick={wallpadReload}
-                    화면 새로고침
-                </Button>
-            </div>
+    let [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
+    const refreshButtonRef = useRef(null);
+    const rebootButtonRef = useRef(null);
 
-            <div>
-                <Label className="font-medium">
-                    시스템 재시작
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
-                    반응 속도가 느려졌거나 조작에 응답하지 않는 경우 시스템을 재시작해 보세요.
-                </p>
-                <Button
-                    variant="ghost"
-                    className="bg-red-700 text-slate-50 font-semibold mr-2 my-2 h-9 w-fit">
-                    시스템 재시작
-                </Button>
+    function wallpadReload() {
+        const refreshURL = new URL('/wallpad/refresh', `http://${location.hostname}:${backendPort}`);
+
+        fetch(refreshURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: (typeof window !== undefined ? window.localStorage.getItem('token') : ''),
+                rmcache: true
+            })
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    refreshButtonRef.current.disabled = true;
+                    refreshButtonRef.current.innerText = '새로고침 완료!';
+                    await delay(1000);
+                    refreshButtonRef.current.disabled = false;
+                    refreshButtonRef.current.innerText = '화면 새로고침';
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                refreshButtonRef.current.disabled = true;
+                refreshButtonRef.current.innerText = '문제가 생겼어요';
+                await delay(1000);
+                refreshButtonRef.current.disabled = false;
+                refreshButtonRef.current.innerText = '화면 새로고침';
+                return;
+            })
+    };
+
+    function wallpadReboot() {
+        const refreshURL = new URL('/wallpad/reboot', `http://${location.hostname}:${backendPort}`);
+
+        fetch(refreshURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: (typeof window !== undefined ? window.localStorage.getItem('token') : '')
+            })
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    rebootButtonRef.current.disabled = true;
+                    rebootButtonRef.current.innerText = '재시작 요청함';
+                    await delay(1000);
+                    signoutHandler();
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                rebootButtonRef.current.disabled = true;
+                rebootButtonRef.current.innerText = '문제가 생겼어요';
+                await delay(1000);
+                rebootButtonRef.current.disabled = false;
+                rebootButtonRef.current.innerText = '시스템 재시작';
+                return;
+            })
+    };
+
+    return (
+        <>
+            <div className='flex flex-col space-y-3'>
+                <div>
+                    <Label className="font-medium">
+                        디스플레이 새로고침
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        설정을 변경한 후에도 디스플레이 표시 내용이 변경되지 않는 경우 원격으로 디스플레이를 새로고침할 수 있어요.
+                    </p>
+                    <Button
+                        variant="ghost"
+                        className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-gray-100 hover:bg-gray-200"
+                        onClick={wallpadReload}
+                        ref={refreshButtonRef}>
+                        화면 새로고침
+                    </Button>
+                </div>
+
+                <div>
+                    <Label className="font-medium">
+                        시스템 재시작
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        반응 속도가 느려졌거나 조작에 응답하지 않는 경우 시스템을 재시작할 수 있어요.
+                    </p>
+                    <Button
+                        variant="ghost"
+                        className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-gray-100 hover:bg-gray-200"
+                        onClick={() => setIsOpenRebootDialog(true)}>
+                        시스템 재시작
+                    </Button>
+                </div>
             </div>
-        </div>
+            <AlertDialog open={isOpenRebootDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>정말 시스템을 재시작할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            시스템이 종료된 후 다시 시작돼요.<br />재시작 버튼을 누르면 웹 콘솔에서 로그아웃되고 재시작이 완료되는 대로 다시 접속할 수 있어요.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenRebootDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold hover:bg-red-600 hover:text-white h-9 bg-gray-100 text-black"
+                            onClick={wallpadReboot}
+                            ref={rebootButtonRef}>
+                            시스템 재시작
+                            </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     )
 }
 

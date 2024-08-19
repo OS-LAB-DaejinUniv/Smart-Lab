@@ -14,18 +14,24 @@ class TimeDiff {
     }
 
     constructor(time) {
-        if (time >= new Date().getTime()) {
-            console.error('`time` must be less then now.');
-            throw new Error('InvalidRange');
+        try {
+            if (time >= new Date().getTime()) {
+                console.error('`time` must be less then now.');
+                throw new Error('InvalidRange');
+            }
+
+            const now = parseInt(new Date().getTime() / 1000);
+            const target = now - parseInt(new Date(time).getTime() / 1000);
+
+            this.day = parseInt(target / TimeDiff.unit.day);
+            this.hour = parseInt((target % TimeDiff.unit.day) / TimeDiff.unit.hour);
+            this.min = parseInt(((target % TimeDiff.unit.day) % TimeDiff.unit.hour) / TimeDiff.unit.min);
+            this.sec = parseInt(((target % TimeDiff.unit.day) % TimeDiff.unit.hour) % TimeDiff.unit.min);
+
+        } catch (err) {
+            console.error('[utils/TimeDiff.js]', err);
         }
 
-        const now = parseInt(new Date().getTime() / 1000);
-        const target = now - parseInt(new Date(time).getTime() / 1000);
-
-        this.day = parseInt(target / TimeDiff.unit.day);
-        this.hour = parseInt((target % TimeDiff.unit.day) / TimeDiff.unit.hour);
-        this.min = parseInt(((target % TimeDiff.unit.day) % TimeDiff.unit.hour) / TimeDiff.unit.min);
-        this.sec = parseInt(((target % TimeDiff.unit.day) % TimeDiff.unit.hour) % TimeDiff.unit.min);
     }
 }
 

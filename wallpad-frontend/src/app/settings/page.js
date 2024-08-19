@@ -6,11 +6,11 @@ import { Separator } from "@/components/ui/separator";
 import React, { useState, useEffect, useRef, use } from 'react';
 import useHash from '../hooks/useHash';
 import Profile from '../components/Profile';
-import Advertisement from '../components/Advertisement';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,8 +20,23 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
 import './page.css';
@@ -75,6 +90,11 @@ export default function Router() {
 
         } else if (isTokenValid && requestHash == '') {
             console.log('token valid && no requestHash -> #system');
+            (() => {
+                if (typeof window != 'undefined') {
+                    window.location.hash = '#system';
+                }
+            })();
             setHashTo('#system');
 
         } else if (isTokenValid && requestHash != '') {
@@ -94,13 +114,22 @@ export default function Router() {
                 return <Signin />;
 
             case '#system':
-                return <Home />
+                return <Home />;
 
             case '#member':
-                return <Home />
+                return <Home />;
 
             case '#ad':
-                return <Home />
+                return <Home />;
+
+            case '#card':
+                return <Home />;
+
+            case '#log':
+                return <Home />;
+
+            case '#config':
+                return <Home />;
 
             case '#expired':
                 return <Signin statusCode="TOKEN_EXPIRED" />;
@@ -125,7 +154,7 @@ function Home() {
         },
         '#log': {
             name: '로그 조회',
-            desc: '출퇴근 내역 또는 시스템 로그를 조회할 수 있어요.'
+            desc: '최근 출퇴근 내역을 검색 및 조회할 수 있어요.'
         },
         '#config': {
             name: '환경설정',
@@ -175,7 +204,16 @@ function Home() {
                             (() => {
                                 switch (hash) {
                                     case '#system':
-                                        return <SystemSection />
+                                        return <SystemSection />;
+
+                                    case '#log':
+                                        return <LogsSection />;
+
+                                    case '#ad':
+                                        return <AdsSection />;
+
+                                    case '#card':
+                                        return <SmartcardSection />;
                                 }
                             })()
                         }
@@ -189,8 +227,18 @@ function Home() {
 // contents of the section `#system`.
 function SystemSection() {
     let [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
+    let [cputemp, setCputemp] = useState(0);
     const refreshButtonRef = useRef(null);
     const rebootButtonRef = useRef(null);
+
+    // update cpu temperature every 5 seconds.
+    useEffect(() => {
+        wallpadTemperature();
+
+        const interval = setInterval(() => wallpadTemperature(), 5000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     function wallpadReload() {
         const refreshURL = new URL('/wallpad/refresh', `http://${location.hostname}:${backendPort}`);
@@ -240,8 +288,6 @@ function SystemSection() {
                 if (body.status) {
                     rebootButtonRef.current.disabled = true;
                     rebootButtonRef.current.innerText = '재시작 요청함';
-                    await delay(1000);
-                    signoutHandler();
                     return;
                 }
                 throw new Error();
@@ -256,15 +302,46 @@ function SystemSection() {
             })
     };
 
+    function wallpadTemperature() {
+        const cputempURL = new URL('/wallpad/cputemp', `http://${location.hostname}:${backendPort}`);
+
+        fetch(cputempURL)
+            .then(res => res.json())
+            .then(async body => {
+                if (body.temp) {
+                    setCputemp(body.temp);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => console.error('failed to retrieve cpu temperature.', err));
+    };
+
     return (
         <>
-            <div className='flex flex-col space-y-3'>
+            <div className='flex flex-col space-y-5'>
+                <div>
+                    <Label className="font-medium">
+                        프로세서 온도
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        {`실시간 프로세서 온도 ${cputemp}°C`}
+                    </p>
+                    <Progress
+                        className={
+                            `w-[15rem] h-[.55rem] my-2 ` +
+                            `${cputemp >= 60 ? '[&>*]:bg-red-600' : ''}`
+                        }
+                        value={cputemp}
+                    />
+                </div>
+
                 <div>
                     <Label className="font-medium">
                         디스플레이 새로고침
                     </Label>
                     <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
-                        설정을 변경한 후에도 디스플레이 표시 내용이 변경되지 않는 경우 원격으로 디스플레이를 새로고침할 수 있어요.
+                        설정을 변경한 후에도 설정이 디스플레이에 적용되지 않으면 원격으로 디스플레이를 새로고침할 수 있어요.
                     </p>
                     <Button
                         variant="ghost"
@@ -295,7 +372,7 @@ function SystemSection() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>정말 시스템을 재시작할까요?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            시스템이 종료된 후 다시 시작돼요.<br />재시작 버튼을 누르면 웹 콘솔에서 로그아웃되고 재시작이 완료되는 대로 다시 접속할 수 있어요.
+                            시스템이 종료된 후 다시 시작돼요.<br />웹 콘솔은 재시작이 완료되어야 다시 접속할 수 있어요.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -309,13 +386,206 @@ function SystemSection() {
                             onClick={wallpadReboot}
                             ref={rebootButtonRef}>
                             시스템 재시작
-                            </AlertDialogAction>
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </>
     )
 }
+
+// contents of the section `#logs`.
+function LogsSection() {
+    const [logs, setLogs] = useState([]);
+
+    function fetchLogs() {
+        const logURL = new URL('/wallpad/management/card/history', `http://${location.hostname}:${backendPort}`);
+
+        fetch(logURL)
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    setLogs(body.rows);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch logs', err);
+                return;
+            });
+    };
+
+    useState(() => {
+        fetchLogs();
+    }, []);
+
+    return (
+        <>
+            <div className='flex flex-col space-y-5'>
+                <div>
+                    <Table className="max-w-screen-sm">
+                        {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[100px]">UUID</TableHead>
+                                <TableHead>상태</TableHead>
+                                <TableHead>일시</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {logs.map((log, index) => (
+                                <TableRow key={index}>
+                                    <TableCell>{log.uuid}</TableCell>
+                                    <TableCell>{log.type}</TableCell>
+                                    <TableCell>{log.at}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
+        </>
+    )
+};
+
+function SmartcardSection() {
+    return (
+        <>
+            <div className='flex flex-col space-y-5'>
+                <div>
+                    ㄴㅇㄹㄴ
+                </div>
+            </div>
+        </>
+    )
+};
+
+function AdsSection() {
+    const imageURL = (id) => {
+        return new URL(
+            `/wallpad/ad/${id}`, `http://${location.hostname}:${backendPort}`
+        ).href;
+    };
+
+    let [adList, setAdList] = useState([]);
+
+    const onDragEnd = ({ source, destination }) => {
+        console.log('from: ', source.index);
+        console.log('to: ', destination.destination);
+
+        const [fromIndex, toIndex] = [source.index, destination.index];
+        let tempAdUUID = adList[fromIndex];
+        adList[fromIndex] = adList[toIndex];
+        adList[toIndex] = tempAdUUID;
+    };
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(new URL('/wallpad/ad/list', `http://${location.hostname}:${backendPort}`));
+                const json = await res.json();
+
+                console.log('fetched ad image list', json.list);
+                setAdList(json.list);
+
+            } catch (err) {
+                console.error('failed to fetch ad list.', err);
+
+                return;
+            }
+        })();
+    }, []);
+
+    return (
+        <>
+            <div className='flex flex-col space-y-5'>
+                <div>
+                    <Label className="font-medium">
+                        새 이미지 업로드
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        새로운 이미지를 추가할 수 있어요.<br />
+                        형식 및 최대 크기: PNG, 2 MBytes<br />
+                        권장 해상도: 1416x460
+                    </p>
+                    <div>
+                        <form
+                            name="inputImage"
+                            method="POST"
+                            enctype="multipart/form-data"
+                            action={new URL('/wallpad/ad/upload', `http://${location.hostname}:${backendPort}`).href}>
+                            <input
+                                type="file"
+                                name="inputImage"
+                                accept="image/png" />
+                            <Button
+                                type="submit"
+                                variant="ghost"
+                                className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-gray-100 hover:bg-gray-200">
+                                업로드
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+
+                <div>
+                    <Label className="font-medium">
+                        표시 순서 변경 및 삭제
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        표시되는 이미지의 순서를 드래그하여 변경하거나 삭제할 수 있어요.
+                    </p>
+                    <div className='rounded-md py-2.5 px-5 mt-2 w-fit bg-slate-100'>
+                        <DragDropContext onDragEnd={onDragEnd}>
+                            <Droppable droppableId="droppable">
+                                {(provided) => (
+                                    <div ref={provided.innerRef} {...provided.droppableProps} className='space-y-4 py-2'>
+                                        {adList.map((item, index) => (
+                                            <Draggable key={item} draggableId={item} index={index}>
+                                                {(provided) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        {...provided.dragHandleProps}
+                                                        className="relative">
+                                                        <div className="absolute flex right-[.7rem] top-[.6rem] space-x-1.5">
+                                                            <p className="font-medium text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full py-[.04rem] px-1.5">
+                                                                {`${index + 1}/${adList.length}`}
+                                                            </p>
+                                                            <p className="font-medium text-sm bg-[#f2f4f6] hover:bg-red-600 hover:text-gray-50 opacity-90 rounded-full py-[.04rem] px-1.5">
+                                                                삭제
+                                                            </p>
+
+                                                        </div>
+                                                        <Image
+                                                            src={imageURL(item)}
+                                                            width='420'
+                                                            height='137'
+                                                            className='rounded-md'
+                                                            alt='ad_image'
+                                                            onError={err => console.error('error occured during fetch: ', item)}
+                                                            style={{
+                                                                objectFit: 'fill',
+                                                                width: '420px',
+                                                                height: '137px'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                    </div>
+                                )}
+                            </Droppable>
+                        </DragDropContext>
+                    </div>
+                </div>
+            </div>
+        </>
+    )
+};
 
 function Signin({ statusCode = null }) {
     let [signinStatus, setSigninStatus] = useState(statusCode);

@@ -140,6 +140,19 @@ class DB {
             console.error(`[DB.getTodayWorkingHours] error(s) occured. details: ${err}`);
         }
     }
+
+    getHistory() {
+        try {
+            const rows = (this.db)
+                .prepare(query.getHistory)
+                .all();
+
+            return rows;
+
+        } catch (err) {
+            console.error(`[DB.getHistory] error(s) occured. details: ${err}`);
+        }
+    }
 };
 
 module.exports = DB;

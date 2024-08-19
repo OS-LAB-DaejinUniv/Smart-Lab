@@ -27,6 +27,8 @@ const config = {
     dbConf: {
         fileMustExist: true
     },
+    rebootCommand: 'sudo reboot',
+    tempCommand: 'cat /sys/class/thermal/thermal_zone0/temp',
     updateUserStatus: "http://api.oslab:8080/user/updateStatus",
 };
 

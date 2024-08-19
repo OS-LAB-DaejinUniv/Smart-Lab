@@ -1,19 +1,38 @@
 const config = require('./config');
 const Wallpad = require('./Wallpad');
 const express = require('express');
+const multer = require('multer');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const { v4 } = require('uuid');
 const { SerialPort } = require('serialport');
 const { autoDetect } = require('@serialport/bindings-cpp');
 const Database = require('better-sqlite3');
 const { execSync } = require('child_process');
 const DB = require('./DB');
 const dbconn = new Database(config.dbPath, config.dbConf);
+const checkImageType = require('./utils/checkImageType');
+const readJSONFile = require('./utils/readJSONFile');
+const writeObjectAsJSON = require('./utils/writeObjectAsJSON');
 const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
+
+// setup multer
+const uploadAd = multer({
+	storage: multer.diskStorage({
+		destination(req, file, done) {
+			done(null, config.adImageDir);
+		},
+		filename(req, file, done) {
+			done(null, v4() + '.png');
+		}
+	}),
+	limits: { fileSize: 2 * 1024 * 1024 },
+	fileFilter: (req, file, done) => checkImageType(file, done)
+});
 
 // express middlewares
 app.use(express.json());
@@ -104,61 +123,7 @@ app.use((req, res, next) => {
 		});
 	});
 
-	// ** belows are http api handlers. **
-	app.post('/wallpad/refresh', (req, res) => {
-		console.log('Got a HTTP request: /wallpad/refresh');
-		
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			const { rmcache } = req.body;
-			
-			if (rmcache) {
-				fs.rmSync(path.resolve(config.nextCacheDir), {
-					recursive: true,
-					force: true
-				});
-				console.log('flushed next.js cache.');
-			}
-
-			io.emit('reqFrontendRefresh');
-			res.json({
-				status: true
-			});
-
-		} catch (err) {
-			console.error('failed to flush next cache: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// reboot wallpad
-	app.post('/wallpad/reboot', (req, res) => {
-		console.log('Got a HTTP request: /wallpad/reboot');
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-			
-			execSync('sudo reboot');
-			res.json({
-				status: true
-			});
-
-		} catch (err) {
-			console.error('failed to run reboot command: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	/* APIs related to wallpad advertisement. */
+	/* HTTP APIs related to wallpad advertisement. */
 
 	// 1. get ad image list.
 	app.get('/wallpad/ad/list', (req, res) => {
@@ -196,6 +161,161 @@ app.use((req, res, next) => {
 
 			res.status(500);
 			res.json(err);
+		}
+	});
+
+	// 3. upload new ad image.
+	app.post('/wallpad/ad/upload', uploadAd.single('inputImage'), (req, res) => {
+		try {
+			// if multer retruned an error.
+			if (!req.file) {
+				throw new Error('MulterFailed');
+			}
+
+			// verify and update ad/config.json
+			const adConfig = readJSONFile(config.adImageDir, 'config.json');
+			adConfig.list.push(req.file.filename.split('.')[0]);
+			
+			// update ad/config.json
+			writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
+
+			console.log('[uploadNewAd] successfully uploaded a new image:',
+				`${req.file.originalname} -> ${req.file.filename}`);
+
+			res.json({ status: true });
+
+		} catch (err) {
+			console.error(`[uploadNewAd] ${err}`);
+
+			res.json({ status: false });
+		}
+	});
+
+	/* HTTP APIs used on wallpad management console. */
+
+	// refresh wallpad
+	app.post('/wallpad/refresh', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			const { rmcache } = req.body;
+
+			if (rmcache) {
+				fs.rmSync(path.resolve(config.nextCacheDir), {
+					recursive: true,
+					force: true
+				});
+				console.log('flushed next.js cache.');
+			}
+
+			io.emit('reqFrontendRefresh');
+			res.json({
+				status: true
+			});
+
+		} catch (err) {
+			console.error('failed to flush next cache: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// reboot wallpad
+	app.post('/wallpad/reboot', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			execSync(config.rebootCommand);
+			res.json({
+				status: true
+			});
+
+		} catch (err) {
+			console.error('failed to run reboot command: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// returns cpu temperature
+	app.get('/wallpad/cputemp', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			const temp = (() => {
+				const cmdResp = execSync(config.tempCommand);
+				return parseFloat((cmdResp / 1000).toFixed(1));
+			})();
+			res.json({
+				status: true,
+				temp
+			});
+
+		} catch (err) {
+			console.error('failed to run tempCommand: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// returns card scan history
+	app.get('/wallpad/management/card/history', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			// if (!req.authed) throw new Error('InvalidToken');
+
+			const rows = db.getHistory();
+
+			res.json({
+				status: true,
+				rows
+			});
+
+		} catch (err) {
+			console.error('failed to retrieve card history: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// returns member list
+	app.get('/wallpad/management/member/list', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			// if (!req.authed) throw new Error('InvalidToken');
+
+			const rows = db.selectMembers();
+
+			res.json({
+				status: true,
+				rows
+			});
+
+		} catch (err) {
+			console.error('failed to retrieve member list: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
 		}
 	});
 

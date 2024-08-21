@@ -53,22 +53,18 @@ app.use((req, res, next) => {
 	try {
 		const { token } = req.body;
 
-		jwt.verify(token, config.webUICreds.jwtSecret, (err) => {
-			if (!err) {
-				req.authed = true;
-
-			} else {
-				req.authed = false;
-			}
+		jwt.verify(token, config.webUICreds.jwtSecret, err => {
+			req.authed = (!err) ? true : false;
 		});
-
-		next();
-
+		
 	} catch (err) {
 		console.error('[tokenValidator] error:', err);
-
-		res.status(500);
-		res.json({ status: false, reason: 'tokenValidatorError' });
+		
+		// res.status(500);
+		// res.json({ status: false, reason: 'tokenValidatorError' });
+		
+	} finally {
+		next();
 	}
 });
 
@@ -104,7 +100,7 @@ app.use((req, res, next) => {
 		console.log(`Started Socket.IO server on port ${config.socketioConf.port}.`);
 	});
 
-	// ** belows are websocket api handlers. **
+	// ** belows are websocket api request handlers. **
 	io.on('connection', (wallpad) => {
 		console.log('Wallpad frontend has connected.');
 
@@ -124,7 +120,6 @@ app.use((req, res, next) => {
 	});
 
 	/* HTTP APIs related to wallpad advertisement. */
-
 	// 1. get ad image list.
 	app.get('/wallpad/ad/list', (req, res) => {
 		try {
@@ -167,6 +162,8 @@ app.use((req, res, next) => {
 	// 3. upload new ad image.
 	app.post('/wallpad/ad/upload', uploadAd.single('inputImage'), (req, res) => {
 		try {
+			// if (!req.authed) throw new Error('InvalidToken');
+			
 			// if multer retruned an error.
 			if (!req.file) {
 				throw new Error('MulterFailed');
@@ -187,6 +184,31 @@ app.use((req, res, next) => {
 		} catch (err) {
 			console.error(`[uploadNewAd] ${err}`);
 
+			res.json({ status: false });
+		}
+	});
+
+	// 4. update ad/config.json
+	app.post('/wallpad/ad/reorder', (req, res) => {
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			// verify and update ad/config.json
+			// const adConfig = readJSONFile(config.adImageDir, 'config.json');
+			// adConfig.list.push(req.file.filename.split('.')[0]);
+			
+			// update ad/config.json
+			// writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
+
+			// console.log('[reorderAdList] successfully uploaded a new image:',
+			// 	`${req.file.originalname} -> ${req.file.filename}`);
+
+			res.json({ status: true });
+
+		} catch (err) {
+			console.error(`[reorderAdList] ${err}`);
+
+			res.status(500);
 			res.json({ status: false });
 		}
 	});

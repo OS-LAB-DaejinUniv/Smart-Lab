@@ -40,6 +40,7 @@ import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
 import './page.css';
+import { token } from 'morgan';
 
 function signoutHandler() {
     if (typeof window !== 'undefined') {
@@ -120,7 +121,7 @@ export default function Router() {
                 return <Home />;
 
             case '#ad':
-                return <Home />;
+                return <Home token={currentToken} />;
 
             case '#card':
                 return <Home />;
@@ -462,23 +463,68 @@ function SmartcardSection() {
 };
 
 function AdsSection() {
+    let [adList, setAdList] = useState([]);
+    let [isOrderChanged, setIsOrderChanged] = useState(false);
+
     const imageURL = (id) => {
         return new URL(
             `/wallpad/ad/${id}`, `http://${location.hostname}:${backendPort}`
         ).href;
     };
-
-    let [adList, setAdList] = useState([]);
-
-    const onDragEnd = ({ source, destination }) => {
-        console.log('from: ', source.index);
-        console.log('to: ', destination.destination);
-
-        const [fromIndex, toIndex] = [source.index, destination.index];
-        let tempAdUUID = adList[fromIndex];
-        adList[fromIndex] = adList[toIndex];
-        adList[toIndex] = tempAdUUID;
+    const updateListURL = () => {
+        return new URL(
+            `/wallpad/ad/reorder`, `http://${location.hostname}:${backendPort}`
+        ).href;
     };
+    const onDragEnd = ({ source, destination }) => {
+        try {
+            console.log(`[onDragEnd] from: ${source.index} -> to: ${destination.index}`);
+
+            // if order changed
+            if (source.index !== destination.index) {
+                setIsOrderChanged(true);
+            }
+
+            // change uuid order on array.
+            const [fromIndex, toIndex] = [source.index, destination.index];
+
+            if ((fromIndex == 0) && (toIndex == adList.length - 1)) {
+                console.log('first -> last');
+
+                adList.push(adList.shift());
+                setAdList(adList);
+
+            } else if ((fromIndex == adList.length - 1) && (toIndex == 0)) {
+                console.log('last -> first');
+
+                adList.unshift(adList.pop());
+                setAdList(adList);
+
+            } else {
+                let tempAdUUID = adList[fromIndex];
+                adList[fromIndex] = adList[toIndex];
+                adList[toIndex] = tempAdUUID;
+            }
+
+        } catch (err) {
+            console.error('[onDragEnd] caught an error: ', err);
+        }
+    };
+    const updateAdListHandler = () => {
+        try {
+            fetch(updateListURL(), {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token: (typeof window !== undefined ? window.localStorage.getItem('token') : ''),
+                    adList
+                })
+            })
+
+        } catch (err) {
+
+        }
+    }
 
     useEffect(() => {
         (async () => {
@@ -513,16 +559,18 @@ function AdsSection() {
                         <form
                             name="inputImage"
                             method="POST"
-                            enctype="multipart/form-data"
+                            encType="multipart/form-data"
+                            className="flex items-center w-fit justify-between rounded-md px-1.5 my-2"
                             action={new URL('/wallpad/ad/upload', `http://${location.hostname}:${backendPort}`).href}>
                             <input
                                 type="file"
                                 name="inputImage"
-                                accept="image/png" />
+                                accept="image/png"
+                                className="ml-2" />
                             <Button
                                 type="submit"
                                 variant="ghost"
-                                className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-gray-100 hover:bg-gray-200">
+                                className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-slate-100 hover:bg-slate-200">
                                 업로드
                             </Button>
                         </form>
@@ -537,6 +585,21 @@ function AdsSection() {
                         표시되는 이미지의 순서를 드래그하여 변경하거나 삭제할 수 있어요.
                     </p>
                     <div className='rounded-md py-2.5 px-5 mt-2 w-fit bg-slate-100'>
+                        <div
+                            className={`flex bg-blue-200 items-center w-full justify-between rounded-md px-1.5 my-2 ` +
+                                `${isOrderChanged ? '' : 'hidden'}`
+                            }>
+                            <p className="text-sm ml-2 font-semibold text-[.8rem]">
+                                변경한 순서를 적용할까요?
+                            </p>
+                            <Button
+                                type="submit"
+                                variant="ghost"
+                                className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-slate-100 hover:bg-slate-200"
+                                onClick={updateAdListHandler}>
+                                적용하기
+                            </Button>
+                        </div>
                         <DragDropContext onDragEnd={onDragEnd}>
                             <Droppable droppableId="droppable">
                                 {(provided) => (

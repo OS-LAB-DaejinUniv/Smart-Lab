@@ -16,6 +16,7 @@ const dbconn = new Database(config.dbPath, config.dbConf);
 const checkImageType = require('./utils/checkImageType');
 const readJSONFile = require('./utils/readJSONFile');
 const writeObjectAsJSON = require('./utils/writeObjectAsJSON');
+const cacheFlush = require('./utils/cacheFlush');
 const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
@@ -30,7 +31,7 @@ const uploadAd = multer({
 			done(null, v4() + '.png');
 		}
 	}),
-	limits: { fileSize: 2 * 1024 * 1024 },
+	limits: { fileSize: 2 * (1024 ** 2) },
 	fileFilter: (req, file, done) => checkImageType(file, done)
 });
 
@@ -193,20 +194,74 @@ app.use((req, res, next) => {
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
 
-			// verify and update ad/config.json
-			// const adConfig = readJSONFile(config.adImageDir, 'config.json');
-			// adConfig.list.push(req.file.filename.split('.')[0]);
+			// load current and reordered list.
+			const current = readJSONFile(config.adImageDir, 'config.json').list;
+			const reordered = req.body.adList;
 			
-			// update ad/config.json
-			// writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
+			// verify equality of length of the current and reordered list.
+			if ((new Set(current).size) != (new Set(reordered).size)) {
+				throw new Error('InconsistantAdList');
+			}
 
-			// console.log('[reorderAdList] successfully uploaded a new image:',
-			// 	`${req.file.originalname} -> ${req.file.filename}`);
+			// verify reordered list includes all elements of the current list.
+			current.forEach(imageId => {
+				if (reordered.indexOf(imageId) == -1) {
+					throw new Error('InconsistantAdList');
+				}
+			});
+
+			// update ad/config.json
+			writeObjectAsJSON(config.adImageDir, 'config.json', { list: reordered });
+			console.log('[reorderAdList] successfully updated ad/config.json');
+
+			// flush cache and refresh screen if field exists.
+			if (req.body.rmcache) {
+				io.emit('reqFrontendRefresh');
+				cacheFlush(config.nextCacheDir);
+			}
 
 			res.json({ status: true });
 
 		} catch (err) {
 			console.error(`[reorderAdList] ${err}`);
+
+			res.status(500);
+			res.json({ status: false });
+		}
+	});
+
+	// 5. delete image
+	app.post('/wallpad/ad/remove/:imageId(*)', (req, res) => {
+		try {
+			// if (!req.authed) throw new Error('InvalidToken');
+
+			const select = req.params.imageId;
+
+			// load current and reordered list.
+			const current = readJSONFile(config.adImageDir, 'config.json').list;
+			const removedList = current.reduce((acc, item) => {
+				if (item != select) acc.push(item);
+				return acc;
+			}, []);
+
+			// delete image file on directory.
+			const filePath = path.resolve(config.adImageDir, select + '.png');
+			fs.rmSync(filePath);
+
+			// update ad/config.json
+			writeObjectAsJSON(config.adImageDir, 'config.json', { list: removedList });
+			console.log('[deleteAdImage] successfully deleted image:', select);
+
+			// flush cache and refresh screen if field exists.
+			if (req.body.rmcache) {
+				io.emit('reqFrontendRefresh');
+				cacheFlush(config.nextCacheDir);
+			}
+
+			res.json({ status: true });
+
+		} catch (err) {
+			console.error(`[deleteAdImage] ${err}`);
 
 			res.status(500);
 			res.json({ status: false });
@@ -225,11 +280,7 @@ app.use((req, res, next) => {
 			const { rmcache } = req.body;
 
 			if (rmcache) {
-				fs.rmSync(path.resolve(config.nextCacheDir), {
-					recursive: true,
-					force: true
-				});
-				console.log('flushed next.js cache.');
+				cacheFlush(config.nextCacheDir);
 			}
 
 			io.emit('reqFrontendRefresh');
@@ -309,11 +360,12 @@ app.use((req, res, next) => {
 
 		} catch (err) {
 			console.error('failed to retrieve card history: ', err.toString());
+
 			res.status(500);
 			res.json({
 				status: false,
 				reason: err
-			})
+			});
 		}
 	});
 

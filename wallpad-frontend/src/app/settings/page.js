@@ -465,6 +465,7 @@ function SmartcardSection() {
 function AdsSection() {
     let [adList, setAdList] = useState([]);
     let [isOrderChanged, setIsOrderChanged] = useState(false);
+    const updateOrderButtonRef = useRef(null);
 
     const imageURL = (id) => {
         return new URL(
@@ -510,19 +511,27 @@ function AdsSection() {
             console.error('[onDragEnd] caught an error: ', err);
         }
     };
-    const updateAdListHandler = () => {
+    const updateAdOrderHandler = () => {
         try {
             fetch(updateListURL(), {
                 method: 'POST',
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     token: (typeof window !== undefined ? window.localStorage.getItem('token') : ''),
+                    rmcache: true,
                     adList
                 })
             })
+                .then(resp => resp.json())
+                .then(body => {
+                    if (body.status) {
+                        console.log('successfully updated ad/config.json ad updated adList array.');
+                        setIsOrderChanged(false);
+                    }
+                })
 
         } catch (err) {
-
+            console.error('failed to update ad/config.json as reorderad asList array.', err);
         }
     }
 
@@ -537,6 +546,8 @@ function AdsSection() {
 
             } catch (err) {
                 console.error('failed to fetch ad list.', err);
+                updateOrderButtonRef.current.disabled = true;
+                updateOrderButtonRef.current.innerText = '문제가 생겼어요';
 
                 return;
             }
@@ -556,12 +567,8 @@ function AdsSection() {
                         권장 해상도: 1416x460
                     </p>
                     <div>
-                        <form
-                            name="inputImage"
-                            method="POST"
-                            encType="multipart/form-data"
-                            className="flex items-center w-fit justify-between rounded-md px-1.5 my-2"
-                            action={new URL('/wallpad/ad/upload', `http://${location.hostname}:${backendPort}`).href}>
+                        <div
+                            className="flex items-center w-fit justify-between rounded-md px-1.5 my-2">
                             <input
                                 type="file"
                                 name="inputImage"
@@ -573,7 +580,7 @@ function AdsSection() {
                                 className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-slate-100 hover:bg-slate-200">
                                 업로드
                             </Button>
-                        </form>
+                        </div>
                     </div>
                 </div>
 
@@ -590,13 +597,14 @@ function AdsSection() {
                                 `${isOrderChanged ? '' : 'hidden'}`
                             }>
                             <p className="text-sm ml-2 font-semibold text-[.8rem]">
-                                변경한 순서를 적용할까요?
+                                변경한 표시 순서를 적용할까요?
                             </p>
                             <Button
                                 type="submit"
                                 variant="ghost"
                                 className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-slate-100 hover:bg-slate-200"
-                                onClick={updateAdListHandler}>
+                                onClick={updateAdOrderHandler}
+                                ref={updateOrderButtonRef}>
                                 적용하기
                             </Button>
                         </div>

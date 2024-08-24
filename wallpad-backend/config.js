@@ -20,6 +20,7 @@ const config = {
             "0.0.0.0"
         ]
     },
+    memberStatusCaption: ["퇴실", "재실", "수업"],
     taskScriptDir: './SCUserPrefTasks/',
     nextCacheDir: '../wallpad-frontend/.next/cache',
     adImageDir: './assets/ad',
@@ -28,6 +29,7 @@ const config = {
         fileMustExist: true
     },
     rebootCommand: 'sudo reboot',
+    poweroffCommand: 'sudo poweroff',
     tempCommand: 'cat /sys/class/thermal/thermal_zone0/temp',
     updateUserStatus: "http://api.oslab:8080/user/updateStatus",
 };

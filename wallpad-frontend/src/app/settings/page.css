@@ -74,3 +74,23 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+table tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+input::file-selector-button {
+  border: none;
+  height: 2.25rem;
+  font-weight: 500;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 7rem;
+  margin-right: .8rem;
+  background-color: #F1F5F9;
+}
+
+input::file-selector-button:hover {
+  background-color: #e2e8f0;
+}
+

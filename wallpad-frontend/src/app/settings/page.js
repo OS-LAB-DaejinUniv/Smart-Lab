@@ -36,6 +36,22 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
@@ -167,7 +183,7 @@ function Home() {
         <>
             <div className="flex flex-col items-center w-full">
                 <header className="sticky flex px-7 top-0 w-full h-[3rem] bg-blue backdrop-blur items-center border-b border-slate-300 justify-between">
-                    <Label className="text-lg font-semibold">OSLab. Wallpad Management Console</Label>
+                    <Label className="text-lg font-semibold">Wallpad Management Console</Label>
                     <div className="flex">
                         <Button
                             variant="ghost"
@@ -179,19 +195,17 @@ function Home() {
                 </header>
                 <div className="flex mt-[1rem] w-full max-w-screen-xl justify-center">
                     <nav className="flex flex-col w-[17rem] mx-5 gap-1">
-                        {
-                            Object.keys(hashList).map(menu => {
-                                return (
-                                    <a
-                                        key={menu}
-                                        href={menu}
-                                        className={`inline-flex items-center justify-left rounded-md text-sm hover:text-accent-foreground w-full h-10 px-4 py-2 font-semibold active:bg-gray-200 ` +
-                                            `${hash == menu ? 'bg-accent' : 'hover:bg-accent hover:underline'}`}>
-                                        {hashList[menu].name}
-                                    </a>
-                                )
-                            })
-                        }
+                        {Object.keys(hashList).map(menu => {
+                            return (
+                                <a
+                                    key={menu}
+                                    href={menu}
+                                    className={`inline-flex items-center justify-left rounded-md text-sm hover:text-accent-foreground w-full h-10 px-4 py-2 font-semibold active:bg-gray-200 ` +
+                                        `${hash == menu ? 'bg-accent' : 'hover:bg-accent hover:underline'}`}>
+                                    {hashList[menu].name}
+                                </a>
+                            )
+                        })}
                     </nav>
                     <main className="w-full mx-5">
                         <h3 className="text-lg font-medium">
@@ -221,6 +235,12 @@ function Home() {
                     </main>
                 </div>
             </div>
+            <footer
+                className="fixed flex flex-col justify-center w-full h-[7rem] bottom-0 pl-[2.5rem] bg-gray-100"
+            >
+                <p className="font-bold text-lg text-gray-500">DJCE OS Laboratory</p>
+                <p className="font-semibold text-sm text-gray-500">소속 부원 외 서비스 접속을 금지합니다.</p>
+            </footer>
         </>
     )
 }
@@ -228,9 +248,11 @@ function Home() {
 // contents of the section `#system`.
 function SystemSection() {
     let [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
+    let [isOpenPoweroffDialog, setIsOpenPoweroffDialog] = useState(false);
     let [cputemp, setCputemp] = useState(0);
     const refreshButtonRef = useRef(null);
     const rebootButtonRef = useRef(null);
+    const poweroffButtonRef = useRef(null);
 
     // update cpu temperature every 5 seconds.
     useEffect(() => {
@@ -303,6 +325,35 @@ function SystemSection() {
             })
     };
 
+    function wallpadPoweroff() {
+        const poweroffURL = new URL('/wallpad/poweroff', `http://${location.hostname}:${backendPort}`);
+
+        fetch(poweroffURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: (typeof window !== undefined ? window.localStorage.getItem('token') : '')
+            })
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    poweroffButtonRef.current.disabled = true;
+                    poweroffButtonRef.current.innerText = '종료 요청함';
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                poweroffButtonRef.current.disabled = true;
+                poweroffButtonRef.current.innerText = '문제가 생겼어요';
+                await delay(1000);
+                poweroffButtonRef.current.disabled = false;
+                poweroffButtonRef.current.innerText = '시스템 종료';
+                return;
+            })
+    };
+
     function wallpadTemperature() {
         const cputempURL = new URL('/wallpad/cputemp', `http://${location.hostname}:${backendPort}`);
 
@@ -367,6 +418,21 @@ function SystemSection() {
                         시스템 재시작
                     </Button>
                 </div>
+
+                <div>
+                    <Label className="font-medium">
+                        시스템 종료
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                        유지보수 작업 전 시스템 종료 기능을 통한 종료를 권장해요.
+                    </p>
+                    <Button
+                        variant="ghost"
+                        className="font-semibold mr-2 my-2 h-9 w-[7rem] bg-gray-100 hover:bg-gray-200"
+                        onClick={() => setIsOpenPoweroffDialog(true)}>
+                        시스템 종료
+                    </Button>
+                </div>
             </div>
             <AlertDialog open={isOpenRebootDialog}>
                 <AlertDialogContent>
@@ -391,6 +457,30 @@ function SystemSection() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            <AlertDialog open={isOpenPoweroffDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>정말 시스템을 종료할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            시스템을 종료할게요.<br />
+                            전원을 분리하고 다시 연결하기 전까지 자동으로 재시작되지 않아요.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenPoweroffDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold hover:bg-red-600 hover:text-white h-9 bg-gray-100 text-black"
+                            onClick={wallpadPoweroff}
+                            ref={poweroffButtonRef}>
+                            시스템 종료
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }
@@ -398,11 +488,15 @@ function SystemSection() {
 // contents of the section `#logs`.
 function LogsSection() {
     const [logs, setLogs] = useState([]);
+    const [UUIDName, setUUIDName] = useState({});
+    const [statusCaption, setStatusCaption] = useState({});
 
     function fetchLogs() {
         const logURL = new URL('/wallpad/management/card/history', `http://${location.hostname}:${backendPort}`);
 
-        fetch(logURL)
+        fetch(logURL, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
             .then(res => res.json())
             .then(async body => {
                 if (body.status) {
@@ -417,19 +511,75 @@ function LogsSection() {
             });
     };
 
-    useState(() => {
+    function fetchStatusCaption() {
+        const statusCaptionURL = new URL('/wallpad/management/member/statuscaption', `http://${location.hostname}:${backendPort}`);
+
+        fetch(statusCaptionURL, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    setStatusCaption(body.caption);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch StatusCaption', err);
+                return;
+            });
+    }
+
+    function resolveUUID(uuid) {
+        const selectMemberURL = new URL(`/wallpad/management/member/${uuid}`, `http://${location.hostname}:${backendPort}`);
+
+        if (UUIDName.hasOwnProperty(uuid)) {
+            return UUIDName[uuid];
+
+        } else {
+            return fetch(selectMemberURL, {
+                headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+            })
+                .then(res => res.json())
+                .then(async body => {
+                    if (body.status) {
+                        setUUIDName(Object.assign(UUIDName, { [uuid]: body.row.name }));
+                        return body.row.name;
+                    }
+                    throw new Error();
+                })
+                .catch(async err => {
+                    console.error('failed to fetch memberList', err);
+                    return '??';
+                });
+        }
+    };
+
+    useEffect(() => {
+        fetchStatusCaption();
         fetchLogs();
     }, []);
 
     return (
         <>
+            {/* <Select>
+                <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Theme" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="15">Light</SelectItem>
+                    <SelectItem value="25">Dark</SelectItem>
+                    <SelectItem value="50">System</SelectItem>
+                </SelectContent>
+            </Select> */}
             <div className='flex flex-col space-y-5'>
                 <div>
                     <Table className="max-w-screen-sm">
-                        {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[100px]">UUID</TableHead>
+                                <TableHead>순번</TableHead>
+                                <TableHead>이름</TableHead>
                                 <TableHead>상태</TableHead>
                                 <TableHead>일시</TableHead>
                             </TableRow>
@@ -437,13 +587,98 @@ function LogsSection() {
                         <TableBody>
                             {logs.map((log, index) => (
                                 <TableRow key={index}>
-                                    <TableCell>{log.uuid}</TableCell>
-                                    <TableCell>{log.type}</TableCell>
-                                    <TableCell>{log.at}</TableCell>
+                                    {/* index */}
+                                    <TableCell className="w-[100px]">{log.index}</TableCell>
+                                    {/* name (tooltip: uuid) */}
+                                    <TableCell className="w-[100px]">
+                                        {
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <p>{resolveUUID(log.uuid)}</p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <div>
+                                                            <p className="font-semibold">{`${UUIDName[log.uuid]}님의 스마트카드 UUID`}</p>
+                                                            <p
+                                                                className="hover:underline"
+                                                                onClick={() => {
+                                                                    if ((typeof navigator !== undefined !== typeof window)) {
+                                                                        navigator.clipboard.writeText(log.uuid);
+                                                                        alert('복사 완료!');
+                                                                    }
+                                                                }}
+                                                            >{`${log.uuid} (클릭하여 복사)`}</p>
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        }
+                                    </TableCell>
+                                    {/* status */}
+                                    <TableCell className="w-[100px]">
+                                        {statusCaption[log.type]}
+                                    </TableCell>
+                                    {/* datetime */}
+                                    <TableCell className="w-[140px]">
+                                        {
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <p>
+                                                            {(() => {
+                                                                const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
+                                                                const t = new Date(log.at);
+                                                                return (
+                                                                    `${t.getMonth() + 1}월 ` +
+                                                                    `${t.getDate()}일 ` +
+                                                                    `(${weekDay[t.getDay()]}) ` +
+                                                                    `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
+                                                                );
+                                                            })()}
+                                                        </p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <div>
+                                                            {(() => {
+                                                                const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
+                                                                const t = new Date(log.at);
+                                                                return (
+                                                                    `${t.getFullYear()}년 ` +
+                                                                    `${t.getMonth() + 1}월 ` +
+                                                                    `${t.getDate()}일 ` +
+                                                                    `${weekDay[t.getDay()]}요일 ` +
+                                                                    `${String(t.getHours()).padStart(2, '0')}시 ` +
+                                                                    `${String(t.getMinutes()).padStart(2, '0')}분 ` +
+                                                                    `${String(t.getSeconds()).padStart(2, '0')}초`
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        }
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious href="#" />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationLink href="#">1</PaginationLink>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationEllipsis />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext href="#" />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
                 </div>
             </div>
         </>

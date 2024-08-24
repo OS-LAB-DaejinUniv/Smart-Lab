@@ -38,32 +38,47 @@ const uploadAd = multer({
 // express middlewares
 app.use(express.json());
 app.use((req, res, next) => {
-	const originHeader = req.header('origin');
+	const originHeader = req.header.origin;
 
 	if (originHeader) {
 		const changedOrigin = new URL(originHeader);
 		changedOrigin.port = config.webUICreds.frontendPort;
 		res.setHeader('Access-Control-Allow-Origin', changedOrigin.origin);
+		// console.log('post요청인가?', origin.origin);
+
+	} else {
+		const origin = new URL('http://' + req.headers.host);
+		origin.port = config.webUICreds.frontendPort;
+		res.setHeader('Access-Control-Allow-Origin', origin.origin);
+		// console.log('get요청인가?', origin.origin)
 	}
 
 	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 	next();
 });
 app.use((req, res, next) => {
 	try {
-		const { token } = req.body;
+		const token = (() => {
+			if (req.method == 'GET') {
+				return req.headers.authorization;
+
+			} else if (req.method == 'POST') {
+				return req.body.token;
+			};
+		})();
 
 		jwt.verify(token, config.webUICreds.jwtSecret, err => {
 			req.authed = (!err) ? true : false;
+			console.log('[tokenValidator]', req.authed);
 		});
-		
+
 	} catch (err) {
 		console.error('[tokenValidator] error:', err);
-		
+
 		// res.status(500);
 		// res.json({ status: false, reason: 'tokenValidatorError' });
-		
+
 	} finally {
 		next();
 	}
@@ -164,7 +179,7 @@ app.use((req, res, next) => {
 	app.post('/wallpad/ad/upload', uploadAd.single('inputImage'), (req, res) => {
 		try {
 			// if (!req.authed) throw new Error('InvalidToken');
-			
+
 			// if multer retruned an error.
 			if (!req.file) {
 				throw new Error('MulterFailed');
@@ -173,7 +188,7 @@ app.use((req, res, next) => {
 			// verify and update ad/config.json
 			const adConfig = readJSONFile(config.adImageDir, 'config.json');
 			adConfig.list.push(req.file.filename.split('.')[0]);
-			
+
 			// update ad/config.json
 			writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
 
@@ -197,7 +212,7 @@ app.use((req, res, next) => {
 			// load current and reordered list.
 			const current = readJSONFile(config.adImageDir, 'config.json').list;
 			const reordered = req.body.adList;
-			
+
 			// verify equality of length of the current and reordered list.
 			if ((new Set(current).size) != (new Set(reordered).size)) {
 				throw new Error('InconsistantAdList');
@@ -320,6 +335,28 @@ app.use((req, res, next) => {
 		}
 	});
 
+	// poweroff wallpad
+	app.post('/wallpad/poweroff', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			execSync(config.poweroffCommand);
+			res.json({
+				status: true
+			});
+
+		} catch (err) {
+			console.error('failed to run poweroff command: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
 	// returns cpu temperature
 	app.get('/wallpad/cputemp', (req, res) => {
 		console.log('Got a HTTP request:', req.path);
@@ -346,10 +383,14 @@ app.use((req, res, next) => {
 
 	// returns card scan history
 	app.get('/wallpad/management/card/history', (req, res) => {
+		const page = req.query.page;
+		const amount = req.query.amount;
+
 		console.log('Got a HTTP request:', req.path);
+		console.log('페이지', page, '수량', amount);
 
 		try {
-			// if (!req.authed) throw new Error('InvalidToken');
+			if (!req.authed) throw new Error('InvalidToken');
 
 			const rows = db.getHistory();
 
@@ -374,13 +415,62 @@ app.use((req, res, next) => {
 		console.log('Got a HTTP request:', req.path);
 
 		try {
-			// if (!req.authed) throw new Error('InvalidToken');
+			if (!req.authed) throw new Error('InvalidToken');
 
 			const rows = db.selectMembers();
 
 			res.json({
 				status: true,
 				rows
+			});
+
+		} catch (err) {
+			console.error('failed to retrieve member list: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// returns member status code caption
+	app.get('/wallpad/management/member/statuscaption', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			const caption = config.memberStatusCaption;
+
+			res.json({
+				status: true,
+				caption
+			});
+
+		} catch (err) {
+			console.error('failed to read config.memberStatusCaption: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
+	// returns specific member info
+	app.get('/wallpad/management/member/:UUID(*)', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			const query = req.params.UUID;
+			const row = db.selectMemberByUUID(query);
+
+			res.json({
+				status: true,
+				row
 			});
 
 		} catch (err) {

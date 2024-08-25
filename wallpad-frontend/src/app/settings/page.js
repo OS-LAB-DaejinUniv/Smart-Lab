@@ -56,7 +56,10 @@ import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
 import './page.css';
-import { token } from 'morgan';
+import { BiSolidLogInCircle } from "react-icons/bi";
+import { BiSolidLogOutCircle } from "react-icons/bi";
+import { FaUnlock } from "react-icons/fa";
+
 
 function signoutHandler() {
     if (typeof window !== 'undefined') {
@@ -155,6 +158,7 @@ export default function Router() {
 };
 
 function Home() {
+    const signoutLeftTime = useRef(null);
     const hash = useHash();
     const hashList = {
         '#system': {
@@ -179,12 +183,54 @@ function Home() {
         },
     };
 
+    // signout automatically when token expired.
+    useEffect(() => {
+        function checkToken() {
+            if (typeof window !== undefined) {
+                const jwt = window.localStorage.getItem('token');
+                const payload = jwt.split('.')[1];
+                const exp = JSON.parse(atob(payload)).exp * 1000;
+
+                const left = exp - new Date().getTime();
+
+                if (left <= 0) {
+                    window.location.reload();
+
+                } else {
+                    signoutLeftTime.current.innerText = parseInt((left / 1000) / 60);
+                }
+            }
+        }
+
+        checkToken();
+        const interval = setInterval(() => checkToken(), 5000);
+
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <>
             <div className="flex flex-col items-center w-full">
-                <header className="sticky flex px-7 top-0 w-full h-[3rem] bg-blue backdrop-blur items-center border-b border-slate-300 justify-between">
+                <header className="sticky flex px-7 top-0 w-full h-[3rem] max-w-screen-xl bg-blue backdrop-blur items-center border-b border-slate-300 justify-between">
                     <Label className="text-lg font-semibold">Wallpad Management Console</Label>
-                    <div className="flex">
+                    <div className="flex items-center">
+                        <TooltipProvider
+                            delayDuration={0}
+                        >
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <div className="flex items-center mr-2.5">
+                                        <FaUnlock className="w-2.5 mr-1.5" />
+                                        <p className="text-sm font-semibold">
+                                            <span ref={signoutLeftTime}>30</span>분
+                                        </p>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>보안을 위해 시간이 지나면 자동으로 로그인이 해제돼요.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                         <Button
                             variant="ghost"
                             className="font-semibold active:bg-gray-200"
@@ -589,6 +635,7 @@ function LogsSection() {
                                 <TableRow key={index}>
                                     {/* index */}
                                     <TableCell className="w-[100px]">{log.index}</TableCell>
+
                                     {/* name (tooltip: uuid) */}
                                     <TableCell className="w-[100px]">
                                         {
@@ -615,10 +662,20 @@ function LogsSection() {
                                             </TooltipProvider>
                                         }
                                     </TableCell>
+
                                     {/* status */}
-                                    <TableCell className="w-[100px]">
+                                    <TableCell className="flex w-[100px]">
+                                        {(() => {
+                                            if (log.status == 0) {
+                                                return <BiSolidLogOutCircle />
+
+                                            } else if (log.status == 1) {
+                                                return <BiSolidLogInCircle />
+                                            }
+                                        })()}
                                         {statusCaption[log.type]}
                                     </TableCell>
+
                                     {/* datetime */}
                                     <TableCell className="w-[140px]">
                                         {

@@ -148,13 +148,13 @@ export default function Home() {
             })()}
           </div>
 
-          <p className='text-2xl font-bold mt-7 mb-3'>연구실 소식</p>
-          {
-            socketStatus ? <Advertisement /> : <AdvertisementSkeleton />
-          }
         </section>
 
         <footer>
+          <div className="mb-[1.65rem]">
+            <p className='text-2xl font-bold mt-7 mb-3'>연구실 소식</p>
+            {socketStatus ? <Advertisement /> : <AdvertisementSkeleton />}
+          </div>
           <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
             <div className={`flex justify-center items-center rounded-full bg-[#3081F5] ` +
               `${socketStatus ? 'w-[2rem] h-[2rem] animation-pulse' : ''}`} />

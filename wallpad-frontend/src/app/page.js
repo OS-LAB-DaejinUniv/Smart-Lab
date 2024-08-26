@@ -147,24 +147,25 @@ export default function Home() {
               })
             })()}
           </div>
-
         </section>
 
         <footer>
           <div className="mb-[1.65rem]">
             <p className='text-2xl font-bold mt-7 mb-3'>연구실 소식</p>
-            {socketStatus ? <Advertisement /> : <AdvertisementSkeleton />}
+            {
+              socketStatus ?
+                <Advertisement /> :
+                <AdvertisementSkeleton />
+            }
           </div>
           <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
             <div className={`flex justify-center items-center rounded-full bg-[#3081F5] ` +
               `${socketStatus ? 'w-[2rem] h-[2rem] animation-pulse' : ''}`} />
             <p className='absolute font-medium align-center tracking-tight'>
               {
-                (() => {
-                  return socketStatus ?
-                    '이곳에 ID 카드를 대주세요' :
-                    '시작하는 동안 잠시만 기다려 주세요'
-                })()
+                socketStatus ?
+                  '이곳에 ID 카드를 대주세요' :
+                  '시작하는 동안 잠시만 기다려 주세요'
               }
             </p>
           </div>

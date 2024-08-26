@@ -52,14 +52,24 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import delay from '../utils/delay';
 const backendPort = require('../../../package').config.socketioPort;
 import './page.css';
-import { BiSolidLogInCircle } from "react-icons/bi";
-import { BiSolidLogOutCircle } from "react-icons/bi";
-import { FaUnlock } from "react-icons/fa";
-
+import { IoArrowForwardOutline } from "react-icons/io5";
+import { IoArrowBackOutline } from "react-icons/io5";
+import { FaLock } from "react-icons/fa";
+import { MdFilterListAlt } from "react-icons/md";
+import { MdFilterAltOff } from "react-icons/md";
 
 function signoutHandler() {
     if (typeof window !== 'undefined') {
@@ -175,7 +185,7 @@ function Home() {
         },
         '#log': {
             name: '로그 조회',
-            desc: '최근 출퇴근 내역을 검색 및 조회할 수 있어요.'
+            desc: '출퇴근 내역을 검색하고 조회할 수 있어요.'
         },
         '#config': {
             name: '환경설정',
@@ -211,7 +221,7 @@ function Home() {
     return (
         <>
             <div className="flex flex-col items-center w-full">
-                <header className="sticky flex px-7 top-0 w-full h-[3rem] max-w-screen-xl bg-blue backdrop-blur items-center border-b border-slate-300 justify-between">
+                <header className="sticky flex px-7 top-0 w-full h-[3rem] z-10 max-w-screen-xl bg-blue backdrop-blur items-center border-b border-slate-300 justify-between">
                     <Label className="text-lg font-semibold">Wallpad Management Console</Label>
                     <div className="flex items-center">
                         <TooltipProvider
@@ -220,14 +230,14 @@ function Home() {
                             <Tooltip>
                                 <TooltipTrigger>
                                     <div className="flex items-center mr-2.5">
-                                        <FaUnlock className="w-2.5 mr-1.5" />
+                                        <FaLock className="w-2.5 mr-1.5" />
                                         <p className="text-sm font-semibold">
                                             <span ref={signoutLeftTime}>30</span>분
                                         </p>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>보안을 위해 시간이 지나면 자동으로 로그인이 해제돼요.</p>
+                                    <p>보안을 위해 시간이 지나면 자동으로 로그아웃돼요.</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -281,11 +291,11 @@ function Home() {
                     </main>
                 </div>
             </div>
-            <footer
-                className="fixed flex flex-col justify-center w-full h-[7rem] bottom-0 pl-[2.5rem] bg-gray-100"
-            >
-                <p className="font-bold text-lg text-gray-500">DJCE OS Laboratory</p>
-                <p className="font-semibold text-sm text-gray-500">소속 부원 외 서비스 접속을 금지합니다.</p>
+            <footer className="fixed flex flex-col items-left justify-center w-full h-[6rem] bottom-0 bg-gray-100">
+                <div className="flex flex-col pl-[2.5rem] min-w-screen-xl">
+                    <p className="font-bold text-lg text-gray-500">DJCE OS Laboratory</p>
+                    <p className="font-semibold text-sm text-gray-500">소속 부원 외 본 서비스 접속을 금합니다.</p>
+                </div>
             </footer>
         </>
     )
@@ -296,6 +306,7 @@ function SystemSection() {
     let [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
     let [isOpenPoweroffDialog, setIsOpenPoweroffDialog] = useState(false);
     let [cputemp, setCputemp] = useState(0);
+    let [uptime, setUptime] = useState(0);
     const refreshButtonRef = useRef(null);
     const rebootButtonRef = useRef(null);
     const poweroffButtonRef = useRef(null);
@@ -303,10 +314,13 @@ function SystemSection() {
     // update cpu temperature every 5 seconds.
     useEffect(() => {
         wallpadTemperature();
+        wallpadUptime();
 
-        const interval = setInterval(() => wallpadTemperature(), 5000);
+        const tempInterval = setInterval(() => wallpadTemperature(), 5000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(tempInterval);
+        }
     }, []);
 
     function wallpadReload() {
@@ -415,23 +429,49 @@ function SystemSection() {
             .catch(async err => console.error('failed to retrieve cpu temperature.', err));
     };
 
+    function wallpadUptime() {
+        const uptimeURL = new URL('/wallpad/uptime', `http://${location.hostname}:${backendPort}`);
+
+        fetch(uptimeURL)
+            .then(res => res.json())
+            .then(async body => {
+                if (body.uptime) {
+                    setUptime(body.uptime);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => console.error('failed to retrieve wallpad uptime.', err));
+    };
+
     return (
         <>
             <div className='flex flex-col space-y-5'>
-                <div>
-                    <Label className="font-medium">
-                        프로세서 온도
-                    </Label>
-                    <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
-                        {`실시간 프로세서 온도 ${cputemp}°C`}
-                    </p>
-                    <Progress
-                        className={
-                            `w-[15rem] h-[.55rem] my-2 ` +
-                            `${cputemp >= 60 ? '[&>*]:bg-red-600' : ''}`
-                        }
-                        value={cputemp}
-                    />
+                <div className="flex space-x-5">
+                    <div>
+                        <Label className="font-medium">
+                            프로세서 온도
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                            {`실시간 프로세서 온도 ${cputemp}°C`}
+                        </p>
+                        <Progress
+                            className={
+                                `w-[15rem] h-[.55rem] my-2 ` +
+                                `${cputemp >= 60 ? '[&>*]:bg-red-600' : ''}`
+                            }
+                            value={cputemp}
+                        />
+                    </div>
+
+                    <div>
+                        <Label className="font-medium">
+                            시스템 업타임
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1.5 text-[.8rem]">
+                            {`시스템 시작 후 경과한 시간:\n약 ${parseInt(uptime / 3600)}시간 ${parseInt((uptime % 3600) / 60)}분`}
+                        </p>
+                    </div>
                 </div>
 
                 <div>
@@ -485,7 +525,8 @@ function SystemSection() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>정말 시스템을 재시작할까요?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            시스템이 종료된 후 다시 시작돼요.<br />웹 콘솔은 재시작이 완료되어야 다시 접속할 수 있어요.
+                            시스템을 재시작하려고 해요.<br />
+                            웹 콘솔은 재시작이 완료되어야 다시 접속할 수 있어요.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -508,7 +549,7 @@ function SystemSection() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>정말 시스템을 종료할까요?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            시스템을 종료할게요.<br />
+                            시스템을 종료하려고 해요.<br />
                             전원을 분리하고 다시 연결하기 전까지 자동으로 재시작되지 않아요.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -536,6 +577,15 @@ function LogsSection() {
     const [logs, setLogs] = useState([]);
     const [UUIDName, setUUIDName] = useState({});
     const [statusCaption, setStatusCaption] = useState({});
+    const [filters, initFilters] = useState(null);
+
+    function updateFilters() {
+        if (!filters) {
+            fetchMemberList()
+            .then(res => console.log('오호 왔구만', res));
+
+        }
+    };
 
     function fetchLogs() {
         const logURL = new URL('/wallpad/management/card/history', `http://${location.hostname}:${backendPort}`);
@@ -553,6 +603,25 @@ function LogsSection() {
             })
             .catch(async err => {
                 console.error('failed to fetch logs', err);
+                return;
+            });
+    };
+
+    function fetchMemberList() {
+        const url = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
+
+        return fetch(url, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    return body.rows;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch member list', err);
                 return;
             });
     };
@@ -602,61 +671,98 @@ function LogsSection() {
         }
     };
 
+    const handleCloseAutoFocus = (event) => {
+        if (event.target.closest('.keep-open')) {
+            event.preventDefault();
+        }
+    }
+
+    // initialize lookup section
     useEffect(() => {
         fetchStatusCaption();
         fetchLogs();
+        updateFilters();
     }, []);
 
     return (
         <>
-            {/* <Select>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Theme" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="15">Light</SelectItem>
-                    <SelectItem value="25">Dark</SelectItem>
-                    <SelectItem value="50">System</SelectItem>
-                </SelectContent>
-            </Select> */}
-            <div className='flex flex-col space-y-5'>
-                <div>
-                    <Table className="max-w-screen-sm">
+            <div className='flex flex-col space-y-5 pb-[7rem]'>
+                <div className="flex flex-col max-w-screen-md justify-center">
+                    <Table className="max-w-screen-md">
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>순번</TableHead>
-                                <TableHead>이름</TableHead>
-                                <TableHead>상태</TableHead>
-                                <TableHead>일시</TableHead>
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-[102px] font-semibold">번호</TableHead>
+                                <TableHead className="w-[132px] font-semibold">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger className="flex px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
+                                            이름
+                                            <MdFilterListAlt className="fill-gray-500 ml-[.1rem] mt-[.15rem]" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuLabel>조회하려는 부원을 선택하세요.</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem className="flex gap-1.5 items-center">
+                                                <Checkbox />
+                                                <p className="pt-[.1rem]">강병재</p>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableHead>
+                                <TableHead className="w-[152px] font-semibold">카드 UUID</TableHead>
+                                <TableHead className="w-[132px] font-semibold">변동내역</TableHead>
+                                <TableHead className="w-[242px] font-semibold">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger className="flex px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
+                                            날짜 및 시간
+                                            <MdFilterListAlt className="fill-gray-500 ml-[.1rem] mt-[.15rem]" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuLabel>조회하려는 날짜 또는 기간을 지정하세요.</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem><Input /></DropdownMenuItem>
+                                            <DropdownMenuItem>
+                                                dsfsd
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {logs.map((log, index) => (
-                                <TableRow key={index}>
+                            {logs.map(log => (
+                                <TableRow key={log.index}>
                                     {/* index */}
-                                    <TableCell className="w-[100px]">{log.index}</TableCell>
+                                    <TableCell>{log.index}</TableCell>
 
-                                    {/* name (tooltip: uuid) */}
-                                    <TableCell className="w-[100px]">
+                                    {/* name */}
+                                    <TableCell>
+                                        {resolveUUID(log.uuid)}
+                                    </TableCell>
+
+                                    {/* UUID (tooltip: full UUID)  */}
+                                    <TableCell>
+
                                         {
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <p>{resolveUUID(log.uuid)}</p>
+                                                        <p className="font-mono text-xs bg-slate-100 rounded-md py-1 px-1.5 w-fit">
+                                                            {String(log.uuid).substring(0, 7) + '..'}
+                                                        </p>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
-                                                        <div>
-                                                            <p className="font-semibold">{`${UUIDName[log.uuid]}님의 스마트카드 UUID`}</p>
-                                                            <p
-                                                                className="hover:underline"
-                                                                onClick={() => {
-                                                                    if ((typeof navigator !== undefined !== typeof window)) {
-                                                                        navigator.clipboard.writeText(log.uuid);
-                                                                        alert('복사 완료!');
-                                                                    }
-                                                                }}
-                                                            >{`${log.uuid} (클릭하여 복사)`}</p>
-                                                        </div>
+                                                        <p
+                                                            onClick={() => {
+                                                                if ((typeof navigator !== undefined !== typeof window)) {
+                                                                    navigator.clipboard.writeText(log.uuid);
+                                                                    alert('복사 완료! 이제 필요한 곳에서 붙여넣을 수 있어요.');
+                                                                }
+                                                            }}
+                                                        >
+                                                            <span
+                                                                className="font-mono text-xs bg-slate-100 rounded-md py-1 px-1.5 w-fit hover:underline">
+                                                                {`${log.uuid}`}
+                                                            </span> (클릭하여 복사)</p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
@@ -664,20 +770,21 @@ function LogsSection() {
                                     </TableCell>
 
                                     {/* status */}
-                                    <TableCell className="flex w-[100px]">
-                                        {(() => {
-                                            if (log.status == 0) {
-                                                return <BiSolidLogOutCircle />
-
-                                            } else if (log.status == 1) {
-                                                return <BiSolidLogInCircle />
+                                    <TableCell>
+                                        <p className="flex items-center gap-1">
+                                            {
+                                                (log.type == 1) ?
+                                                    <IoArrowForwardOutline className="mb-[.1rem] stroke-red-500" /> :
+                                                    <IoArrowBackOutline className="mb-[.1rem] stroke-blue-500" />
                                             }
-                                        })()}
-                                        {statusCaption[log.type]}
+                                            <span>
+                                                {statusCaption[log.type]}
+                                            </span>
+                                        </p>
                                     </TableCell>
 
                                     {/* datetime */}
-                                    <TableCell className="w-[140px]">
+                                    < TableCell>
                                         {
                                             <TooltipProvider>
                                                 <Tooltip>
@@ -687,10 +794,23 @@ function LogsSection() {
                                                                 const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
                                                                 const t = new Date(log.at);
                                                                 return (
-                                                                    `${t.getMonth() + 1}월 ` +
-                                                                    `${t.getDate()}일 ` +
-                                                                    `(${weekDay[t.getDay()]}) ` +
-                                                                    `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
+                                                                    <>
+                                                                        {
+                                                                            `${t.getMonth() + 1}월 ` +
+                                                                            `${t.getDate()}일 `
+                                                                        }
+                                                                        <span className={(() => {
+                                                                            const day = new Date(log.at).getDay();
+
+                                                                            if (day == 0) return 'text-red-500';
+                                                                            else if (day == 6) return 'text-blue-500';
+                                                                        })()}>
+                                                                            {`(${weekDay[t.getDay()]}) `}
+                                                                        </span>
+                                                                        {
+                                                                            `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
+                                                                        }
+                                                                    </>
                                                                 );
                                                             })()}
                                                         </p>
@@ -719,35 +839,69 @@ function LogsSection() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
-                    <Pagination>
+                    </Table >
+                    <Pagination className="max-w-screen-md mt-1">
                         <PaginationContent>
                             <PaginationItem>
-                                <PaginationPrevious href="#" />
+                                <PaginationPrevious />
                             </PaginationItem>
                             <PaginationItem>
-                                <PaginationLink href="#">1</PaginationLink>
+                                <PaginationLink>1</PaginationLink>
                             </PaginationItem>
                             <PaginationItem>
                                 <PaginationEllipsis />
                             </PaginationItem>
                             <PaginationItem>
-                                <PaginationNext href="#" />
+                                <PaginationNext />
                             </PaginationItem>
                         </PaginationContent>
                     </Pagination>
-                </div>
-            </div>
+                </div >
+            </div >
         </>
     )
 };
 
 function SmartcardSection() {
+    let [memberList, setMemberList] = useState([]);
+
+    function fetchMembetList() {
+        const memberListURL = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
+
+        fetch(memberListURL, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    setMemberList(body.rows);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch member list', err);
+                return;
+            });
+    };
+
+    useEffect(() => {
+        fetchMembetList();
+    }, []);
+
     return (
         <>
             <div className='flex flex-col space-y-5'>
                 <div>
-                    ㄴㅇㄹㄴ
+                    {
+                        memberList.map(member => {
+                            return (
+                                <p>
+                                    {`${member.uuid} ${member.name}`}
+                                </p>
+                            )
+                        })
+                    }
                 </div>
             </div>
         </>

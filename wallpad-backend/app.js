@@ -381,10 +381,43 @@ app.use((req, res, next) => {
 		}
 	});
 
+	// returns system uptime
+	app.get('/wallpad/uptime', (req, res) => {
+		console.log('Got a HTTP request:', req.path);
+
+		try {
+			const uptime = parseInt(
+				require('os').uptime()
+			);
+			res.json({
+				status: true,
+				uptime
+			});
+
+		} catch (err) {
+			console.error('failed to retrieve uptime: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
+		}
+	});
+
 	// returns card scan history
 	app.get('/wallpad/management/card/history', (req, res) => {
-		const page = req.query.page;
-		const amount = req.query.amount;
+		const page = (() => {
+			if (typeof parseInt(req.query.page) != 'number') {
+				return new Error('InvalidPage');
+			}
+			return req.query.page;
+		})();
+		const amount = (() => {
+			if (!req.query.amount || !(10 <= req.query.amount <= 30)) {
+				return new Error('InvalidAmount');
+			}
+			return req.query.amount;
+		})();
 
 		console.log('Got a HTTP request:', req.path);
 		console.log('페이지', page, '수량', amount);

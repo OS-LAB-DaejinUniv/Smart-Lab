@@ -577,13 +577,19 @@ function LogsSection() {
     const [logs, setLogs] = useState([]);
     const [UUIDName, setUUIDName] = useState({});
     const [statusCaption, setStatusCaption] = useState({});
-    const [filters, initFilters] = useState(null);
+    const [filter, setFilter] = useState(null);
 
-    function updateFilters() {
-        if (!filters) {
+    function updateFilter() {
+        if (!filter) {
+            // initialize filters
             fetchMemberList()
-            .then(res => console.log('오호 왔구만', res));
-
+                .then(memberList => {
+                    let name = {};
+                    memberList.forEach(item =>
+                        name[item.name] = true
+                    );
+                    setFilter({ name, datetime: {} });
+                });
         }
     };
 
@@ -671,17 +677,11 @@ function LogsSection() {
         }
     };
 
-    const handleCloseAutoFocus = (event) => {
-        if (event.target.closest('.keep-open')) {
-            event.preventDefault();
-        }
-    }
-
     // initialize lookup section
     useEffect(() => {
         fetchStatusCaption();
         fetchLogs();
-        updateFilters();
+        updateFilter();
     }, []);
 
     return (
@@ -701,10 +701,22 @@ function LogsSection() {
                                         <DropdownMenuContent>
                                             <DropdownMenuLabel>조회하려는 부원을 선택하세요.</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="flex gap-1.5 items-center">
-                                                <Checkbox />
-                                                <p className="pt-[.1rem]">강병재</p>
-                                            </DropdownMenuItem>
+                                            {
+                                                (() => {
+                                                    if (!filter?.name) return null;
+
+                                                    return Object.keys(filter.name).map(key => (
+                                                        <DropdownMenuItem
+                                                            onClick={evt => evt.preventDefault()}
+                                                            className="flex gap-2 items-center"
+                                                            key={key}
+                                                        >
+                                                            <Checkbox data-state="unchecked" />
+                                                            <label className="pt-[.1rem]">{key}</label>
+                                                        </DropdownMenuItem>
+                                                    ))
+                                                })()
+                                            }
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableHead>

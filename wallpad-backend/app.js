@@ -405,19 +405,20 @@ app.use((req, res, next) => {
 	});
 
 	// returns card scan history
-	app.get('/wallpad/management/card/history', (req, res) => {
+	app.post('/wallpad/management/card/history', (req, res) => {
 		const page = (() => {
 			if (typeof parseInt(req.query.page) != 'number') {
 				return new Error('InvalidPage');
 			}
 			return req.query.page;
 		})();
-		const amount = (() => {
-			if (!req.query.amount || !(10 <= req.query.amount <= 30)) {
-				return new Error('InvalidAmount');
-			}
-			return req.query.amount;
-		})();
+		// const amount = (() => {
+		// 	if (!req.query.amount || !(10 <= req.query.amount <= 30)) {
+		// 		return new Error('InvalidAmount');
+		// 	}
+		// 	return req.query.amount;
+		// })();
+		const amount = 10;
 
 		console.log('Got a HTTP request:', req.path);
 		console.log('페이지', page, '수량', amount);
@@ -425,7 +426,7 @@ app.use((req, res, next) => {
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
 
-			const rows = db.getHistory();
+			const rows = db.getHistory(req.body.filter);
 
 			res.json({
 				status: true,

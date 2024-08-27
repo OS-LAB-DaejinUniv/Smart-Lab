@@ -584,20 +584,33 @@ function LogsSection() {
             // initialize filters
             fetchMemberList()
                 .then(memberList => {
-                    let name = {};
+                    let uuid = {};
                     memberList.forEach(item =>
-                        name[item.name] = true
+                        uuid[item.uuid] = true
                     );
-                    setFilter({ name, datetime: {} });
+                    setFilter({ uuid, datetime: {} });
                 });
         }
     };
 
-    function fetchLogs() {
+    // fetch logs according to filter
+    useEffect(() => {
+        if (!filter) return;
+
+        console.log('필터 설정 변경됨', filter);
+        fetchLogs(filter);
+    }, [filter]);
+
+    function fetchLogs(filter) {
         const logURL = new URL('/wallpad/management/card/history', `http://${location.hostname}:${backendPort}`);
 
         fetch(logURL, {
-            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: (typeof window !== undefined ? window.localStorage.getItem('token') : ''),
+                filter
+            })
         })
             .then(res => res.json())
             .then(async body => {
@@ -680,7 +693,6 @@ function LogsSection() {
     // initialize lookup section
     useEffect(() => {
         fetchStatusCaption();
-        fetchLogs();
         updateFilter();
     }, []);
 
@@ -703,16 +715,23 @@ function LogsSection() {
                                             <DropdownMenuSeparator />
                                             {
                                                 (() => {
-                                                    if (!filter?.name) return null;
+                                                    if (!filter?.uuid) return null;
 
-                                                    return Object.keys(filter.name).map(key => (
+                                                    return Object.keys(filter.uuid).map(key => (
                                                         <DropdownMenuItem
                                                             onClick={evt => evt.preventDefault()}
                                                             className="flex gap-2 items-center"
                                                             key={key}
                                                         >
-                                                            <Checkbox data-state="unchecked" />
-                                                            <label className="pt-[.1rem]">{key}</label>
+                                                            <Checkbox
+                                                                data-state="unchecked"
+                                                                defaultChecked={filter.uuid[key]}
+                                                                onCheckedChange={changedStatus => {
+                                                                    filter.uuid[key] = changedStatus;
+                                                                    setFilter({ ...filter });
+                                                                }}
+                                                            />
+                                                            <label className="pt-[.1rem]">{resolveUUID(key)}</label>
                                                         </DropdownMenuItem>
                                                     ))
                                                 })()

@@ -141,10 +141,19 @@ class DB {
         }
     }
 
-    getHistory() {
+    getHistory(filter) {
         try {
+            const selectedUUID = Object.keys(filter.uuid).reduce((acc, uuid) => {
+                if (filter.uuid[uuid]) {
+                    acc.push(uuid);
+                }
+                return acc;
+            }, []);
+
+            console.log('QUERY:',query.getHistory + query.withCondition.UUIDArray(selectedUUID));
+
             const rows = (this.db)
-                .prepare(query.getHistory)
+                .prepare(query.getHistory + query.withCondition.UUIDArray(selectedUUID))
                 .all();
 
             return rows;

@@ -574,15 +574,75 @@ function SystemSection() {
 
 // contents of the section `#logs`.
 function LogsSection() {
-    const [logs, setLogs] = useState([]);
-    const [UUIDName, setUUIDName] = useState({});
-    const [statusCaption, setStatusCaption] = useState({});
-    const [filter, setFilter] = useState(null);
+    const [logs, setLogs] = useState(null);
+    const statusCaption = (() => {
+        const statusCaptionURL = new URL('/wallpad/management/member/statuscaption', `http://${location.hostname}:${backendPort}`);
 
-    function updateFilter() {
+        fetch(statusCaptionURL, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    return body.caption;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch StatusCaption', err);
+                return null;
+            });
+    })();
+    const memberList = (() => {
+        const url = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
+
+        return fetch(url, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    return body.rows;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch member list', err);
+                return null;
+            });
+    })();
+    let [filter, setFilter] = useState(null);
+    let UUIDName = {};
+    let [isRender, setIsRender] = useState(false);
+
+    /*
+    1. retrieve member list.
+    2. initialize filters.
+    3. fetch scan history.
+    4. resolve uuid based on member list.
+    */
+
+    // initialize section
+    useEffect(() => {
+        initUUIDName();
+        initFilter();
+    }, []);
+
+    function initUUIDName() {
+        if (!memberList) return;
+
+        memberList
+            .then(memberList => {
+                Object.assign(UUIDName, memberList.map(item => ({ [item.uuid]: item.name })));
+            });
+        console.log('initUUIDName: done', UUIDName);
+    };
+
+    function initFilter() {
         if (!filter) {
             // initialize filters
-            fetchMemberList()
+            setFilter({});
+            memberList
                 .then(memberList => {
                     let uuid = {};
                     memberList.forEach(item =>
@@ -590,6 +650,7 @@ function LogsSection() {
                     );
                     setFilter({ uuid, datetime: {} });
                 });
+            console.log('initFilter: done', filter);
         }
     };
 
@@ -616,6 +677,7 @@ function LogsSection() {
             .then(async body => {
                 if (body.status) {
                     setLogs(body.rows);
+                    setIsRender(true);
                     return;
                 }
                 throw new Error();
@@ -626,76 +688,26 @@ function LogsSection() {
             });
     };
 
-    function fetchMemberList() {
-        const url = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
 
-        return fetch(url, {
-            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
-        })
-            .then(res => res.json())
-            .then(async body => {
-                if (body.status) {
-                    return body.rows;
-                }
-                throw new Error();
-            })
-            .catch(async err => {
-                console.error('failed to fetch member list', err);
-                return;
-            });
-    };
 
-    function fetchStatusCaption() {
-        const statusCaptionURL = new URL('/wallpad/management/member/statuscaption', `http://${location.hostname}:${backendPort}`);
-
-        fetch(statusCaptionURL, {
-            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
-        })
-            .then(res => res.json())
-            .then(async body => {
-                if (body.status) {
-                    setStatusCaption(body.caption);
-                    return;
-                }
-                throw new Error();
-            })
-            .catch(async err => {
-                console.error('failed to fetch StatusCaption', err);
-                return;
-            });
-    }
-
+    // resolves UUID to real username. 
     function resolveUUID(uuid) {
-        const selectMemberURL = new URL(`/wallpad/management/member/${uuid}`, `http://${location.hostname}:${backendPort}`);
-
         if (UUIDName.hasOwnProperty(uuid)) {
+            // returns name if UUID already has been resolved before.
             return UUIDName[uuid];
 
         } else {
-            return fetch(selectMemberURL, {
-                headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
-            })
-                .then(res => res.json())
-                .then(async body => {
-                    if (body.status) {
-                        setUUIDName(Object.assign(UUIDName, { [uuid]: body.row.name }));
-                        return body.row.name;
-                    }
-                    throw new Error();
-                })
-                .catch(async err => {
-                    console.error('failed to fetch memberList', err);
-                    return '??';
-                });
+            return '오류';
         }
     };
 
-    // initialize lookup section
-    useEffect(() => {
-        fetchStatusCaption();
-        updateFilter();
-    }, []);
 
+
+    if (!isRender) {
+        console.log('아직렌더링못함', isRender);
+        return null;
+    }
+    console.log('렌더링가능', logs);
     return (
         <>
             <div className='flex flex-col space-y-5 pb-[7rem]'>
@@ -731,7 +743,7 @@ function LogsSection() {
                                                                     setFilter({ ...filter });
                                                                 }}
                                                             />
-                                                            <label className="pt-[.1rem]">{resolveUUID(key)}</label>
+                                                            <label className="pt-[.1rem]">{UUIDName[key] || resolveUUID(key)}</label>
                                                         </DropdownMenuItem>
                                                     ))
                                                 })()
@@ -767,7 +779,7 @@ function LogsSection() {
 
                                     {/* name */}
                                     <TableCell>
-                                        {resolveUUID(log.uuid)}
+                                        {UUIDName[log.uuid] || resolveUUID(log.uuid)}
                                     </TableCell>
 
                                     {/* UUID (tooltip: full UUID)  */}

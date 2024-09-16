@@ -7,7 +7,9 @@ const query = {
     getLastOut: 'SELECT at FROM history WHERE uuid = (?) AND type = 0 ORDER BY "at" DESC LIMIT 1',
     getHistory:  'SELECT * FROM history',
     withCondition: {
-        UUIDArray: (arr) => {
+        UUIDArray: (arr = []) => {
+            if (arr.length == 0) return ' WHERE uuid = null';
+
             return arr.reduce((acc, uuid, idx) => {
                 acc += `'${uuid}' ${(idx != arr.length - 1) ? ' OR uuid = ' : ' '}`;
                 return acc;

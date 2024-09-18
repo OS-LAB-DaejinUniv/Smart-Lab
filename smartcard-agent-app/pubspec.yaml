@@ -38,6 +38,8 @@ dependencies:
   flutter_nfc_kit: ^3.5.2
   gap: ^3.0.1
   hexcolor: ^3.0.1
+  url_launcher: ^6.3.0
+  flutter_native_splash: ^2.4.1
 
 dev_dependencies:
   flutter_test:
@@ -91,3 +93,9 @@ flutter:
     - family: TossFace
       fonts:
         - asset: assets/fonts/TossFaceFontMac.ttf
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/oslab_logo.png
+  android: true
+  ios: true

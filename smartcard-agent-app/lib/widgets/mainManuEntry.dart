@@ -6,9 +6,7 @@ Widget mainMenuEntry(String emoji, String title, String desc, void Function() ha
       customBorder: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-    onTap: () {
-      handler();
-    },
+    onTap: handler,
     child: Container(
         height: 48,
         padding: const EdgeInsets.fromLTRB(3, 0, 3, 0),
@@ -45,14 +43,14 @@ Widget mainMenuEntry(String emoji, String title, String desc, void Function() ha
                     children: [
                       Text(
                           title,
-                          style: const TextStyle(
-                              color: Colors.black87,
+                          style: TextStyle(
+                              color: HexColor('333D4B'),
                               fontSize: 18,
                               fontWeight: FontWeight.w600)),
                       Text(
                           desc,
-                          style: const TextStyle(
-                              color: Colors.black54,
+                          style: TextStyle(
+                              color: HexColor('6B7684'),
                               fontSize: 14,
                               fontWeight: FontWeight.w500))
                     ],

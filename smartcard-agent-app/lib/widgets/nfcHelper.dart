@@ -33,7 +33,7 @@ class _NFCHelperState extends State<NFCHelper> {
                       color: HexColor('8B95A1'), size: 52),
                   const Gap(7),
                   Text(
-                      "카드를 휴대폰 뒷면에 대세요.${_dialogMessage != null ? '\n$_dialogMessage' : ''}",
+                      "카드를 휴대폰 뒷면에 대주세요.${_dialogMessage != null ? '\n$_dialogMessage' : ''}",
                       style: TextStyle(
                           fontSize: 18,
                           color: HexColor('333D4B'),

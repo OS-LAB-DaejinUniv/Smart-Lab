@@ -4,6 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:hexcolor/hexcolor.dart';
 
 class CardinfoPage extends StatelessWidget {
+  dynamic cardInfo;
+
+  CardinfoPage(dynamic cardInfo, {super.key}) {
+    this.cardInfo = cardInfo;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,17 +29,21 @@ class CardinfoPage extends StatelessWidget {
             )
         ),
         backgroundColor: HexColor('FAFAFA'),
-        body: Container(
-            child: Center(
-              child: Column(
-                children: [
-                  Text('카드 고유번호\nAABBCCDD-1111-2222-3333-009988776655', style: TextStyle(
-                    color: HexColor('333D4B')
-                  ),)
-                ],
-              )
+        body: SafeArea(child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(8),
+            child: ListView(
+              children: [
+                Text('''
+                UUID: ${cardInfo['uuid']}\n
+                이름: ${cardInfo['name']}\n
+                학번: ${cardInfo['studentId']}\n
+                설정값: ${cardInfo['extra']}
+                ''', style: TextStyle(fontSize: 22, color: HexColor('333D4B'), fontWeight: FontWeight.w600))
+              ]
             )
-        )
+          )
+        ))
     );
   }
 }

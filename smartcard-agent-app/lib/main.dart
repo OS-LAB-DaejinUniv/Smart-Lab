@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:djce_oslab_screader/CardinfoPage.dart';
+import 'package:djce_oslab_screader/utils/nfcOperation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +43,32 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  void processReadCard() async {
+    showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) => NFCHelper()
+    );
+
+    try {
+      // scan id card
+      var resp = await nfcOperation('READ_INFO');
+
+      // close nfc dialog
+      Navigator.pop(context);
+
+      // initialize card info page with readings.
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context) => CardinfoPage(resp)));
+
+    } catch (e) {
+      debugPrint('이거뭐야 $e');
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context)=> CardinfoPage(null)));
+    }
+
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,15 +114,8 @@ class _MyHomePageState extends State<MyHomePage> {
                           Gap(12),
                           mainMenuEntry(
                               '🪪', '부원증 관리', '부원증을 조회하거나 개인 설정을 변경할 수 있어요.',
-                              () async {
-                                showDialog(
-                                    context: context,
-                                    barrierDismissible: true,
-                                    builder: (BuildContext context) => NFCHelper()
-                                );
-                                Navigator.of(context)
-                                    .push(MaterialPageRoute(builder: (context)=> CardinfoPage()));
-                          }),
+                              () async { processReadCard(); }
+                          ),
                           Gap(16),
                           mainMenuEntry(
                               '📂', 'SecureVault', '중요한 파일을 부원증에 안전하게 보관하세요.',

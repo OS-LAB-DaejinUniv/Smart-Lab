@@ -94,6 +94,10 @@ flutter:
       fonts:
         - asset: assets/fonts/TossFaceFontMac.ttf
 
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
+
 flutter_native_splash:
   color: "#FFFFFF"
   image: assets/images/oslab_logo.png

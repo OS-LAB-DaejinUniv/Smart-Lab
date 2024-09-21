@@ -5,8 +5,9 @@ import 'package:hexcolor/hexcolor.dart';
 
 class NFCHelper extends StatefulWidget {
   String? message;
+  bool isError = false;
 
-  NFCHelper({Key? key, this.message}) : super(key: key);
+  NFCHelper({Key? key, this.message, bool isError = false}) : super(key: key);
 
   @override
   State<NFCHelper> createState() => _NFCHelperState();
@@ -14,11 +15,13 @@ class NFCHelper extends StatefulWidget {
 
 class _NFCHelperState extends State<NFCHelper> {
   String? _dialogMessage;
+  bool _isError = false;
 
   @override
   void initState() {
     super.initState();
     _dialogMessage = widget.message ?? null;
+    _isError = widget.isError;
   }
 
   @override
@@ -29,11 +32,13 @@ class _NFCHelperState extends State<NFCHelper> {
               height: 150,
               child: Row(
                 children: [
-                  Icon(Icons.contactless_rounded,
+                  Icon(_isError ?
+                  Icons.close_rounded :
+                  Icons.contactless_rounded,
                       color: HexColor('8B95A1'), size: 52),
                   const Gap(7),
                   Text(
-                      "카드를 휴대폰 뒷면에 대주세요.${_dialogMessage != null ? '\n$_dialogMessage' : ''}",
+                      "${_dialogMessage != null ? '$_dialogMessage' : '카드를 휴대폰 뒷면에 대주세요.'}",
                       style: TextStyle(
                           fontSize: 18,
                           color: HexColor('333D4B'),

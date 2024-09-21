@@ -22,7 +22,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'OSTools Home',
       theme: ThemeData(
           brightness: Brightness.dark,
           useMaterial3: true,
@@ -44,29 +43,49 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   void processReadCard() async {
+    bool isDialogShowing = true;
+
     showDialog(
         context: context,
         barrierDismissible: true,
         builder: (BuildContext context) => NFCHelper()
-    );
+    ).then((value) => {
+      nfcOperation('FINISH_SESSION'),
+      isDialogShowing = false,
+    });
 
     try {
       // scan id card
-      var resp = await nfcOperation('READ_INFO');
+      var cardInfo = await nfcOperation('READ_INFO');
+
+      if (cardInfo == null) {
+        throw Error();
+      }
 
       // close nfc dialog
       Navigator.pop(context);
 
       // initialize card info page with readings.
       Navigator.of(context)
-          .push(MaterialPageRoute(builder: (context) => CardinfoPage(resp)));
+          .push(MaterialPageRoute(builder: (context) => CardinfoPage(
+        cardInfo: cardInfo
+      )));
 
-    } catch (e) {
-      debugPrint('이거뭐야 $e');
-      Navigator.of(context)
-          .push(MaterialPageRoute(builder: (context)=> CardinfoPage(null)));
+    } catch (e) { // if any error occurs
+      if (isDialogShowing) {
+        Navigator.pop(context); // close nfc dialog
+        showDialog( // and show error message
+            context: context,
+            barrierDismissible: true,
+            builder: (BuildContext context) => NFCHelper(
+              message: '카드를 확인하고 다시 시도해 주세요.',
+              isError: true,
+            )
+        );
+      } else {
+        debugPrint('ignore error -> $e');
+      }
     }
-
   }
 
   @override

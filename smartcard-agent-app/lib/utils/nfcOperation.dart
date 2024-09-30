@@ -62,10 +62,10 @@ nfcOperation(String operation) async {
         }();
 
         // split response array and parse info appropriately.
-        late final Uint8List resp_uuid = cardInfo.sublist(0, 15);
-        late final Uint8List resp_name = cardInfo.sublist(16, 31);
-        late final Uint8List resp_stdNo = cardInfo.sublist(32, 47);
-        late final Uint8List resp_extra = cardInfo.sublist(48, 63);
+        late final Uint8List resp_uuid = cardInfo.sublist(0, 16);
+        late final Uint8List resp_name = cardInfo.sublist(16, 32);
+        late final Uint8List resp_stdNo = cardInfo.sublist(32, 48);
+        late final Uint8List resp_extra = cardInfo.sublist(48, 64);
 
         return {
           'uuid': resp_uuid.map((c) => c.toRadixString(16).padLeft(2, '0')).join().toUpperCase(),

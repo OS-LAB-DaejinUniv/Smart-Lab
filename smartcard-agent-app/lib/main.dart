@@ -142,8 +142,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             // 미구현
                           }),
                           Gap(16),
-                          mainMenuEntry('🔑', 'OSAuth.',
-                              '공용 PC에서 비밀번호 입력 없이 안전하게 로그인하세요.', () {
+                          mainMenuEntry('🔑', 'OSPass.',
+                              '공용 PC에서 비밀번호 없이 안전하게 로그인하세요.', () {
                             print('OSAuth.');
                           }),
                           Gap(16),

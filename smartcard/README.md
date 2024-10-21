@@ -14,10 +14,10 @@ $JDK11_HOME/bin/javac \
 -source 1.6 \
 -target 1.6 \
 -Xlint:deprecation \
--Xlint: -options \
+-Xlint:-options \
 OSLabID.java
 ```
-* ```$JCDK_HOME```: The path where your Javacard SDK located on. e.g. ```/opt/jcdk```
+* ```$JCDK_HOME```: The path where your Javacard SDK is located on. e.g. ```/opt/jcdk```
 * ```$JDK11_HOME```: The path where your JDK11 located on. e.g. ```/usr/lib/jvm/jdk-11```
 
 [-> Download latest JCDK](https://www.oracle.com/java/technologies/javacard-downloads.html)
@@ -35,11 +35,11 @@ $JCDK_HOME/bin/converter.sh \
 -applet 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB OSLabID \
 OSLabID 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB:0x11 1.0
 ```
-* ```$JCDK_HOME```: The path where your Javacard SDK located on. e.g. ```/opt/jcdk```
+* ```$JCDK_HOME```: The path on which your Javacard SDK is located. e.g. ```/opt/jcdk```
 <br><br>
-### ⚡ Flashing onto real smart card!
+### ⚡ Flashing onto the real smart card!
 ```java -jar gp.jar --install OSLabID.cap --params <YOUR_PARAMS>```<br>
-* ```YOUR_PARAMS```: A 48-byte of personalization data represented in hex string.<br>
+* ```YOUR_PARAMS```: A 48-byte of personalization data represented in a hex string.<br>
 ```AES-128 key (16-byte)``` + ```Name string (16-byte, UTF-8, fill remain bytes as 0)``` + ```Student ID string (16-byte, UTF-8, fill remain bytes as 0)```<br>
 
 [-> Get gp.jar](https://github.com/martinpaljak/GlobalPlatformPro)
@@ -59,13 +59,19 @@ Use ```0x54``` on every command.
 |6|```0xEE```|Update user configuration bytes.|Pass 16-byte data via APDU data field.|```90 00``` if success.
 
 **P1**
-1. ```0xCC```: Write a new card usage history record. Must be used as a paremeter of CLA ```0xA2```.<br>
+1. ```0xCC```: Write a new card usage history record. Must be used as a parameter of CLA ```0xA2```.<br>
 fill data with 16-byte response + 5-byte new record* (32-bit UNIX time + 1-byte record type) + (11-byte padding 0)<br>
 e.g. ```54 A2 CC 00 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>```<br>
 
-\* Contents of the 5-byte record could be set as an arbitrary value if you want! it doesnt't matter.
-<br><br>
+> [!TIP]
+> The format of the 5-byte record could be set as **an arbitrary** if you want! format doesn't matter.
+<br>
+
 ### References
 [https://tool.hiofd.com/en/aes-decrypt-online/](https://tool.hiofd.com/en/aes-decrypt-online/), AES encryption & decryption test tool. (set as CBC, NoPadding mode)<br>
 [https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html](https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html), Reference of javacardx.crypto.Cipher<br>
 [https://dencode.com/string/hex](https://dencode.com/string/hex), Convert HEX to UTF-8 string
+<br><br>
+### Questions
+Any questions or proposals are welcome.<br>
+Please use the discussions tab on this repository.

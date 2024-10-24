@@ -1,4 +1,6 @@
 ## 🪪 OSLabID.java – OS랩 스마트 ID 카드
+<img src="https://raw.githubusercontent.com/OS-LAB-DaejinUniv/Smart-Lab/refs/heads/main/smartcard/demo1.jpg" />
+<br>
 출입 및 출퇴근 상태 전환시 월패드에 태그하여 **본인 인증 수단**으로서 사용합니다.<br>
 
 현존 출입통제 시스템의 절대 다수가 채용중인 Mifare Classic 칩셋의 UID bytes를 비교하는 방식은 그 복제가 매우 용이하고 보편화되어,<br>

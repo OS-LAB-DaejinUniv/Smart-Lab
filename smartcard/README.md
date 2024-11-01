@@ -8,6 +8,15 @@
 이에 Java Card 플랫폼 기반의 스마트카드를 활용하여 카드 복제 문제를 차단할 수 있었을 뿐만 아니라,<br>
 아이폰 NFC 호환성 확보 및 전용 앱을 통한 웹 2FA 서비스도 문제 없이 구현할 수 있었습니다.
 <br><br>
+### 🏗️ How do I make my own card?
+There are some blank Java cards on the internet which your applet can be installed on.<br>
+In this project, we used NXP J3R180 with dual interface support bought from [AliExpress](https://www.aliexpress.com/w/wholesale-J3R180.html).<br>
+
+But if you want another one, we recommend you to check following functionalities are supported on that card.
+1. Java Card Platform 3.0.5
+2. Dual Interface (meaning contactless mode are supported.)
+3. GlobalPlatform (you can easily manage your card through [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).)
+<br><br>
 ### 💻 Build
 ```
 $JDK11_HOME/bin/javac \

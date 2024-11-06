@@ -1,8 +1,8 @@
 /**
  * @brief Member profile component.
  * @author Jay Kang, tlsdnwls
- * @date July 19, 2024
- * @version 0.1
+ * @date Nov 6, 2024
+ * @version 0.2
  */
 
 import React, { memo } from 'react';
@@ -10,15 +10,16 @@ import Image from 'next/image';
 
 const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { // emoji used as fallback of profile image.
   const disabledColor = '#4E5968';
+  const enabledColor = '#3182F6';
 
   // `isAbsent` decides whether profile image (or emoji) are shown in grayscale or not.
   //const textColor = (isAbsent) ? `text-[${disabledColor}]` : `text-[${enabledColor}]`;
 
   // index matched as the value of the column `position` on db.
-  const positionText = ['부원', '랩장', '수습부원', '지도교수']; // in english -> member, leader, probationary member, professor
+  const positionText = ['부원', '랩장', '수습부원', '교수님']; // member, leader, probationary member, professor
 
   // index matched as the value of the column `status` on db.
-  const statusText = ['부재중', '재실', '수업중', '군대']; // in english -> absent, present, in class
+  const statusText = ['부재중', '재실', '수업중', '군대']; // absent, present, in class, in military service
 
   return (
     <>
@@ -41,8 +42,8 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { 
               </p>
             </div>
             <p
-              className='text-sm leading-[1.4]'
-              style={{ color: (isAbsent) ? disabledColor : '' }}>
+              className={`text-sm leading-[1.4] ${isAbsent ? '' : 'font-semibold'}`}
+              style={{ color: (isAbsent) ? disabledColor : enabledColor }}>
               {statusText[status]}</p>
           </div>
         </div>

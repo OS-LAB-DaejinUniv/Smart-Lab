@@ -43,7 +43,7 @@ Project SmartLab
 |------|------|-----|
 |월패드(프론트엔드)|Next.js (JavaScript)|wallpad-frontend|
 |월패드(백엔드)|Node.js (JavaScript)|wallpad-backend|
-|Database|SQLite|
+|Database|SQLite|wallpad-backend|
 |스마트카드|JavaCard 3.0.5 (Java)|smartcard|
-|서버|미정||
-|전용 앱|Flutter (Dart)||
+|서버|Express.js|-|
+|전용 앱|Flutter (Dart)|smartcard-agent-app|

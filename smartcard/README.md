@@ -1,10 +1,21 @@
 ## 🪪 OSLabID.java – OS랩 스마트 ID 카드
+<img width="230" src="https://raw.githubusercontent.com/OS-LAB-DaejinUniv/Smart-Lab/refs/heads/main/smartcard/demo1.jpg" />
+
 출입 및 출퇴근 상태 전환시 월패드에 태그하여 **본인 인증 수단**으로서 사용합니다.<br>
 
 현존 출입통제 시스템의 절대 다수가 채용중인 Mifare Classic 칩셋의 UID bytes를 비교하는 방식은 그 복제가 매우 용이하고 보편화되어,<br>
 사실상 보안성이 없을 것이라는 판단 하에 대안 기술을 적용해 보기로 결정하였습니다.<br>
 이에 Java Card 플랫폼 기반의 스마트카드를 활용하여 카드 복제 문제를 차단할 수 있었을 뿐만 아니라,<br>
 아이폰 NFC 호환성 확보 및 전용 앱을 통한 웹 2FA 서비스도 문제 없이 구현할 수 있었습니다.
+<br><br>
+### 🏗️ How do I make my own card?
+There are some blank Java cards on the internet which your applet can be installed on.<br>
+In this project, we used NXP J3R180 with dual interface support bought from [AliExpress](https://www.aliexpress.com/w/wholesale-J3R180.html).<br>
+
+But if you want another one, we recommend you to check following functionalities are supported on that card.
+1. Java Card Platform 3.0.5
+2. Dual Interface (meaning contactless mode are supported.)
+3. GlobalPlatform (you can easily manage your card through [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).)
 <br><br>
 ### 💻 Build
 ```
@@ -14,10 +25,10 @@ $JDK11_HOME/bin/javac \
 -source 1.6 \
 -target 1.6 \
 -Xlint:deprecation \
--Xlint: -options \
+-Xlint:-options \
 OSLabID.java
 ```
-* ```$JCDK_HOME```: The path where your Javacard SDK located on. e.g. ```/opt/jcdk```
+* ```$JCDK_HOME```: The path where your Javacard SDK is located on. e.g. ```/opt/jcdk```
 * ```$JDK11_HOME```: The path where your JDK11 located on. e.g. ```/usr/lib/jvm/jdk-11```
 
 [-> Download latest JCDK](https://www.oracle.com/java/technologies/javacard-downloads.html)
@@ -35,11 +46,11 @@ $JCDK_HOME/bin/converter.sh \
 -applet 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB OSLabID \
 OSLabID 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB:0x11 1.0
 ```
-* ```$JCDK_HOME```: The path where your Javacard SDK located on. e.g. ```/opt/jcdk```
+* ```$JCDK_HOME```: The path on which your Javacard SDK is located. e.g. ```/opt/jcdk```
 <br><br>
-### ⚡ Flashing onto real smart card!
+### ⚡ Flashing onto the real smart card!
 ```java -jar gp.jar --install OSLabID.cap --params <YOUR_PARAMS>```<br>
-* ```YOUR_PARAMS```: A 48-byte of personalization data represented in hex string.<br>
+* ```YOUR_PARAMS```: A 48-byte of personalization data represented in a hex string.<br>
 ```AES-128 key (16-byte)``` + ```Name string (16-byte, UTF-8, fill remain bytes as 0)``` + ```Student ID string (16-byte, UTF-8, fill remain bytes as 0)```<br>
 
 * You can generate install parameter easily using ```generate_parameter.py``` on current directory.
@@ -61,13 +72,19 @@ Use ```0x54``` on every command.
 |6|```0xEE```|Update user configuration bytes.|Pass 16-byte data via APDU data field.|```90 00``` if success.
 
 **P1**
-1. ```0xCC```: Write a new card usage history record. Must be used as a paremeter of CLA ```0xA2```.<br>
+1. ```0xCC```: Write a new card usage history record. Must be used as a parameter of CLA ```0xA2```.<br>
 fill data with 16-byte response + 5-byte new record* (32-bit UNIX time + 1-byte record type) + (11-byte padding 0)<br>
 e.g. ```54 A2 CC 00 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>```<br>
 
-\* Contents of the 5-byte record could be set as an arbitrary value if you want! it doesnt't matter.
-<br><br>
+> [!TIP]
+> The format of the 5-byte record could be set as **an arbitrary** if you want! format doesn't matter.
+<br>
+
 ### References
 [https://tool.hiofd.com/en/aes-decrypt-online/](https://tool.hiofd.com/en/aes-decrypt-online/), AES encryption & decryption test tool. (set as CBC, NoPadding mode)<br>
 [https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html](https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html), Reference of javacardx.crypto.Cipher<br>
 [https://dencode.com/string/hex](https://dencode.com/string/hex), Convert HEX to UTF-8 string
+<br><br>
+### Questions
+Any questions or proposals are welcome.<br>
+Please use the discussions tab on this repository.

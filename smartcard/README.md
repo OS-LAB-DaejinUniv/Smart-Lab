@@ -42,6 +42,8 @@ OSLabID 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB:0x11 1.0
 * ```YOUR_PARAMS```: A 48-byte of personalization data represented in hex string.<br>
 ```AES-128 key (16-byte)``` + ```Name string (16-byte, UTF-8, fill remain bytes as 0)``` + ```Student ID string (16-byte, UTF-8, fill remain bytes as 0)```<br>
 
+* You can generate install parameter easily using ```generate_parameter.py``` on current directory.
+
 [-> Get gp.jar](https://github.com/martinpaljak/GlobalPlatformPro)
 <br><br>
 ### ⚙️ APDU Command definition

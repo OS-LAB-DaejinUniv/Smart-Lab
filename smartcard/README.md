@@ -28,8 +28,8 @@ $JDK11_HOME/bin/javac \
 -Xlint:-options \
 OSLabID.java
 ```
-* ```$JCDK_HOME```: The path where your Javacard SDK is located on. e.g. ```/opt/jcdk```
-* ```$JDK11_HOME```: The path where your JDK11 located on. e.g. ```/usr/lib/jvm/jdk-11```
+* ```$JCDK_HOME```: The path where your Javacard SDK is located on, e.g., ```/opt/jcdk```
+* ```$JDK11_HOME```: The path where your JDK11 located on., e.g., ```/usr/lib/jvm/jdk-11```
 
 [-> Download latest JCDK](https://www.oracle.com/java/technologies/javacard-downloads.html)
 <br>
@@ -46,11 +46,11 @@ $JCDK_HOME/bin/converter.sh \
 -applet 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB OSLabID \
 OSLabID 0x55:0x44:0x33:0x22:0x11:0xCC:0xBB:0x11 1.0
 ```
-* ```$JCDK_HOME```: The path on which your Javacard SDK is located. e.g. ```/opt/jcdk```
+* ```$JCDK_HOME```: The path on which your Javacard SDK is located, e.g., ```/opt/jcdk```
 <br><br>
 ### ⚡ Flashing onto the real smart card!
-```java -jar gp.jar --install OSLabID.cap --params <YOUR_PARAMS>```<br>
-* ```YOUR_PARAMS```: A 48-byte of personalization data represented in a hex string.<br>
+```java -jar gp.jar --install OSLabID.cap --params <PARAMETER>```<br>
+* ```<PARAMETER>```: A 48-byte of personalization data represented in a hex string.<br>
 ```AES-128 key (16-byte)``` + ```Name string (16-byte, UTF-8, fill remain bytes as 0)``` + ```Student ID string (16-byte, UTF-8, fill remain bytes as 0)```<br>
 
 * You can generate install parameter easily using ```generate_parameter.py``` on current directory.
@@ -73,13 +73,38 @@ Use ```0x54``` on every command.
 
 **P1**
 1. ```0xCC```: Write a new card usage history record. Must be used as a parameter of CLA ```0xA2```.<br>
-fill data with 16-byte response + 5-byte new record* (32-bit UNIX time + 1-byte record type) + (11-byte padding 0)<br>
+fill data with 16-byte response + 5-byte new record* (32-bit UNIX timestamp + 1-byte record type) + (11-byte padding 0)<br>
 e.g. ```54 A2 CC 00 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>```<br>
 
 > [!TIP]
 > The format of the 5-byte record could be set as **an arbitrary** if you want! format doesn't matter.
-<br>
+<br><br>
+### ✨ Usage example
+Below are APDU command examples of challenge-response authentication using this card.
 
+#### 1. Server Authentication
+
+
+#### 2. Client Authentication
+In this example, let's assume that the server must verify an unknown smart card has the correct symmetric key.<br>
+Before doing this example, you have installed ```opensc-tool```<br>
+On Debian/Ubuntu, you can install ```opensc-tool``` simply type ```apt install opensc```
+
+1. Create a 16-byte challenge from the server.<br>
+   e.g., ```11 AA 22 BB 33 CC 44 DD 55 EE 66 FF 77 00 88 11```
+   
+2. Send client authentication command to the card with the challenge bytes and get a response from the card like:<br>
+   ```opensc-tool -s 00A40400<AID LENGTH><AID> -s 54A1000010<challenge>```<br>
+   e.g., ```opensc-tool -s 00A40400075544332211CCBB -s 54AA00001011AA22BB33CC44DD55EE66FF77008811```
+
+3. Decrypt the response using preshared AES key.
+
+4. Verify decrypted response is the same as the challenge. the decrypted response is separated by its index.<br>
+   0\~15: Response. (16-byte, left aligned, pad remaining bytes as 0)<br>
+   16\~31: Name. (16-byte, left aligned, pad remaining bytes as 0)<br>
+   32\~47: User extra configuration area. (16-byte)<br>
+
+<br><br>
 ### References
 [https://tool.hiofd.com/en/aes-decrypt-online/](https://tool.hiofd.com/en/aes-decrypt-online/), AES encryption & decryption test tool. (set as CBC, NoPadding mode)<br>
 [https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html](https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html), Reference of javacardx.crypto.Cipher<br>

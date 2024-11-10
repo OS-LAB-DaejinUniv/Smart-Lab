@@ -87,7 +87,7 @@ Below are APDU command examples of challenge-response authentication using this 
 
 #### 2. Client Authentication
 In this example, let's assume that the server must verify an unknown smart card has the correct symmetric key.<br>
-Before doing this example, you have installed ```opensc-tool```<br>
+Before doing this example, you have to be installed ```opensc-tool```<br>
 On Debian/Ubuntu, you can install ```opensc-tool``` simply type ```apt install opensc```
 
 1. Create a 16-byte challenge from the server.<br>

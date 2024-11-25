@@ -74,7 +74,7 @@ Use ```0x54``` on every command.
 **P1**
 1. ```0xCC```: Write a new card usage history record. Must be used as a parameter of CLA ```0xA2```.<br>
 fill data with 16-byte response + 5-byte new record* (32-bit UNIX timestamp + 1-byte record type) + (11-byte padding 0)<br>
-e.g. ```54 A2 CC 00 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>```<br>
+e.g. ```54 A2 CC 00 20 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>```<br>
 
 > [!TIP]
 > The format of the 5-byte record could be set as **an arbitrary** if you want! format doesn't matter.
@@ -82,34 +82,51 @@ e.g. ```54 A2 CC 00 <16-byte of response> 12 34 56 78 01 <11-byte of padding 0>`
 ### ✨ Usage example
 Below are APDU command examples of challenge-response authentication using this card.
 
-#### 1. Server Authentication
-
-
-#### 2. Client Authentication
-In this example, let's assume that the server must verify an unknown smart card has the correct symmetric key.<br>
 Before doing this example, you have to be installed ```opensc-tool```<br>
 On Debian/Ubuntu, you can install ```opensc-tool``` simply type ```apt install opensc```
 
+#### 1. Server Authentication
+Server authentication happens to validate the command runs on the card side.<br>
+This example shows the process of adding a history record to the card.<br>
+
+1. Select the applet.<br>
+   ```opensc-tool -s 00A40400<AID length><AID>```<br>
+   e.g., ```opensc-tool -s 00A40400075544332211CCBB```
+
+2. Request to issue a 16-byte challenge for the server authentication to the card.<br>
+   ```opensc-tool -s 54A10000```
+   
+3. Encrypt the entire response including the card side command you want to execute and its payload and send it.<br>
+   ```54 A2 <card-side command=CC(add a new history record)> 00 <APDU payload size=20> <16-byte of response> <5-byte of history record> <11-byte of padding 0>```
+
+4. You'll get the response ```90 00``` from the card if successfully executed.<br>
+
+#### 2. Client Authentication
+In this example, let's assume that the server must verify an unknown smart card has the correct symmetric key.<br>
+
 1. Create a 16-byte challenge from the server.<br>
    e.g., ```11 AA 22 BB 33 CC 44 DD 55 EE 66 FF 77 00 88 11```
+
+2. Select the applet.
+   ```opensc-tool -s 00A40400<AID length><AID>```
+   e.g., ```opensc-tool -s 00A40400075544332211CCBB```
    
-2. Send client authentication command to the card with the challenge bytes and get a response from the card like:<br>
-   ```opensc-tool -s 00A40400<AID LENGTH><AID> -s 54A1000010<challenge>```<br>
-   e.g., ```opensc-tool -s 00A40400075544332211CCBB -s 54AA00001011AA22BB33CC44DD55EE66FF77008811```
+3. Send client authentication command to the card with the challenge bytes and get a response from the card like:<br>
+   ```opensc-tool -s 54A10000<payload size=10><challenge>```<br>
+   e.g., ```opensc-tool -s 54A100001011AA22BB33CC44DD55EE66FF77008811```
 
-3. Decrypt the response using preshared AES key.
+4. Decrypt the response using the pre-shared AES key.
 
-4. Verify decrypted response is the same as the challenge. the decrypted response is separated by its index.<br>
+5. Verify decrypted response is the same as the challenge. the decrypted response is separated by its index.<br>
    0\~15: Response. (16-byte, left aligned, pad remaining bytes as 0)<br>
    16\~31: Name. (16-byte, left aligned, pad remaining bytes as 0)<br>
    32\~47: User extra configuration area. (16-byte)<br>
 
-<br><br>
 ### References
 [https://tool.hiofd.com/en/aes-decrypt-online/](https://tool.hiofd.com/en/aes-decrypt-online/), AES encryption & decryption test tool. (set as CBC, NoPadding mode)<br>
 [https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html](https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html), Reference of javacardx.crypto.Cipher<br>
-[https://dencode.com/string/hex](https://dencode.com/string/hex), Convert HEX to UTF-8 string
-<br><br>
+[https://dencode.com/string/hex](https://dencode.com/string/hex), Convert HEX to UTF-8 string<br>
+
 ### Questions
 Any questions or proposals are welcome.<br>
 Please use the discussions tab on this repository.

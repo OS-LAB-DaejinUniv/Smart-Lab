@@ -9,12 +9,12 @@
 아이폰 NFC 호환성 확보 및 전용 앱을 통한 웹 2FA 서비스도 문제 없이 구현할 수 있었습니다.
 <br><br>
 ### 🏗️ How do I make my own card?
-There are some blank Java cards on the internet which your applet can be installed on.<br>
+There are some blank Java cards on which your applet can be installed.<br>
 In this project, we used NXP J3R180 with dual interface support bought from [AliExpress](https://www.aliexpress.com/w/wholesale-J3R180.html).<br>
 
-But if you want another one, we recommend you to check following functionalities are supported on that card.
+But if you want the other one, we recommend you check the following functionalities are supported on that card.
 1. Java Card Platform 3.0.5
-2. Dual Interface (meaning contactless mode are supported.)
+2. Dual Interface (meaning contactless mode is supported.)
 3. GlobalPlatform (you can easily manage your card through [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).)
 <br><br>
 ### 💻 Build

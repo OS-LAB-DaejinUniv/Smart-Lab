@@ -168,6 +168,20 @@ class Wallpad {
     }
 }
 
+#tmoneyBalanceHandler(parsed) {
+    try {
+        const uint32 = /([0-9A-F]{8})/;
+        const balance = Number(
+            parsed.match(uint32)[0]
+        );
+        this.io.emit('tmoney_balance', { balance });
+        console.log(`[Wallpad.tmoneyBalanceHandler] T-money card scanned. balance ${balance.toLocaleString('ko-KR')}:`);
+
+    } catch (err) {
+        console.error(`[Wallpad.tmoneyBalanceHandler] failed to process t-money card: ${err}`);
+    }
+}
+
 #parseResponse() {
     let [matchedType, matchedValue] = [null, null];
 
@@ -189,11 +203,17 @@ class Wallpad {
 
     switch (matchedType) {
         case 'authedUser':
-            this.#authedHandler(matchedValue.toString().substring('AUTHED_'.length));
+            this.#authedHandler(
+                matchedValue.toString().substring('AUTHED_'.length)
+            );
             break;
 
         case 'processed':
             this.#done();
+            break;
+
+        case 'tmoney_bal':
+            this.#tmoneyBalanceHandler(matchedValue);
             break;
 
         default:

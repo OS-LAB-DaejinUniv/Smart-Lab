@@ -14,6 +14,9 @@ const regexps = {
     notosid: new RegExp(/NOT_OSID/),
     crypto: new RegExp(/MISMATCHED_CRYPTOGRAM/),
     rfLost: new RegExp(/RF_DROP/),
+
+    // etc.
+    tmoney_bal: new RegExp(/TM_B_[0-9A-F]{8}/)
 };
 
 module.exports = regexps;

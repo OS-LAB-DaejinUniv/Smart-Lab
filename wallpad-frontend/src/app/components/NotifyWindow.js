@@ -8,14 +8,15 @@
 import { memo } from 'react';
 import Image from 'next/image';
 
-const NotifyWindow = ({ type, name, timesTaken }) => {
+const NotifyWindow = ({ type, name, timesTaken, ...props }) => {
   const title = {
     'notosid': '지원하지 않는 카드에요',
     'crypto': '유효하지 않은 카드에요',
     'rfLost': '통신 중 문제가 발생했어요',
     'arrival': '재실 상태로 변경했어요!',
     'goHome': '퇴근 상태로 변경했어요!',
-    'NotFoundUser': '문제가 발생했어요'
+    'NotFoundUser': '문제가 발생했어요',
+    'tmoneyBalance': '교통카드 잔액 조회 성공!'
   };
 
   const message = {
@@ -24,7 +25,11 @@ const NotifyWindow = ({ type, name, timesTaken }) => {
     'rfLost': '카드를 조금만 더 오래 태그해 주세요.',
     'arrival': '님의 상태를 재실 상태로 변경했어요.',
     'goHome': '님의 상태를 퇴근 상태로 변경했어요.',
-    'NotFoundUser': '등록되지 않은 스마트카드에요. 담당 부원에게 문의해 주세요.'
+    'NotFoundUser': '등록되지 않은 스마트카드에요. 담당 부원에게 문의해 주세요.',
+    'tmoneyBalance': `지금 태그하신 티머니 카드의 잔액은 ₩${
+      props.balance ?
+      parseInt(props.balance).toLocaleString('ko-KR') : null
+    } 입니다.`
   };
 
   const timesTakenCaption = {

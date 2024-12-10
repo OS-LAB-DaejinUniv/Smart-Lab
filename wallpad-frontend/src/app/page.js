@@ -97,6 +97,7 @@ export default function Home() {
               type={notifyStatus.status}
               name={notifyStatus.name || null}
               timesTaken={notifyStatus.timesTaken}
+              balance={notifyStatus.balance || null}
             />
           );
       })()}

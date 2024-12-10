@@ -18,7 +18,7 @@ v1.0a (추가 개선 필요)
 2. DIDN_GOT_CHALLENGE: 스마트카드에 Server Authentication을 위한 Challenge 생성을 요청하였으나 수신하지 못함.
 3. MISMATCHED_CRYPTOGRAM: 스마트카드가 생성한 Client Authentication Response가 내부에서 생성된 값과 일치하지 않음
 4. CLIENT_AUTH_ERROR: Client Authentication을 위한 APDU를 스마트카드로 전송 중 오류 발생
-5. NOT_OSID: SELECT APDU 오류, 애플릿을 찾을 수 없음.
+5. NOT_SUPPORTED: SELECT APDU 오류. 지원하는 애플릿을 찾을 수 없음.
 6. RF_LOST: 카드와 통신 중 신호 두절
 
 # 스마트카드에 기록되는 로그의 포맷

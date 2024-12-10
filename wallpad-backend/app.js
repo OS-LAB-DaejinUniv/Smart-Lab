@@ -545,6 +545,20 @@ app.use((req, res, next) => {
 		}
 	});
 
+	// returns all of member status
+	app.get('/wallpad/member/statusall', (req, res) => {
+		try {
+			const statusAll = db.selectMembers();
+
+			res.json(statusAll);
+		
+		} catch (err) {
+			console.log('[statusall] error:', err);
+			res.status(500);
+			res.json({ status: false });
+		}
+	});
+
 	// returns validity of token.
 	app.get('/wallpad/management/token/verify', (req, res) => {
 		try {
@@ -567,7 +581,7 @@ app.use((req, res, next) => {
 			res.status(500);
 			res.json({ status: false });
 		}
-	})
+	});
 
 	// belows are callbacks for cleanup.
 	process.on('exit', () => db.close());

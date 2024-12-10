@@ -123,106 +123,113 @@ class Wallpad {
                         timesTaken
                     }));
 
-            // launch tasks according to user preference settings on card. (asynchronously)
-            if (changedStat) {
-                setTimeout(currentUser => {
-                    this.#triggerRunTasks(currentUser.extra);
-                }, 0, Object.assign({}, this.pending));
+                // launch tasks according to user preference settings on card. (asynchronously)
+                if (changedStat) {
+                    setTimeout(currentUser => {
+                        this.#triggerRunTasks(currentUser.extra);
+                    }, 0, Object.assign({}, this.pending));
+                }
+
+                console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
+                    + `pos.: ${this.pending.position}, `
+                    + `stat.: ${this.pending.status} → ${changedStat}`);
+
+                sfx.play(true);
+
+            } else {
+                throw new Error('[Wallpad.done] called illegally.');
             }
 
-            console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
-                + `pos.: ${this.pending.position}, `
-                + `stat.: ${this.pending.status} → ${changedStat}`);
+        } catch (err) {
+            console.error('[Wallpad.done] error.', err);
 
-            sfx.play(true);
-
-        } else {
-            throw new Error('[Wallpad.done] called illegally.');
+        } finally {
+            this.pending = null;
+            this.status = WallpadStatus.IDLE;
         }
-
-    } catch(err) {
-        console.error('[Wallpad.done] error.', err);
-
-    } finally {
-        this.pending = null;
-        this.status = WallpadStatus.IDLE;
-    }
     }
 
-#errorHandler(eventName) {
-    try {
-        if (this.DEBUG) console.log(`[Wallpad.errorHandler] due to ${eventName}`);
+    #errorHandler(eventName) {
+        try {
+            if (this.DEBUG) console.log(`[Wallpad.errorHandler] due to ${eventName}`);
 
-        this.status = WallpadStatus.BUSY;
-
-        this.io.emit('error', new SCEvent({ status: eventName }));
-
-        sfx.play(false);
-
-    } catch (err) {
-        console.error('[Wallpad.errorHandler] error.', err);
-
-    } finally {
-        this.pending = null;
-        this.status = WallpadStatus.IDLE;
-    }
-}
-
-#tmoneyBalanceHandler(parsed) {
-    try {
-        const uint32 = /([0-9A-F]{8})/;
-        const balance = Number(
-            parsed.match(uint32)[0]
-        );
-        this.io.emit('tmoney_balance', { balance });
-        console.log(`[Wallpad.tmoneyBalanceHandler] T-money card scanned. balance ${balance.toLocaleString('ko-KR')}:`);
-
-    } catch (err) {
-        console.error(`[Wallpad.tmoneyBalanceHandler] failed to process t-money card: ${err}`);
-    }
-}
-
-#parseResponse() {
-    let [matchedType, matchedValue] = [null, null];
-
-    Object.keys(regexps).some(patternName => {
-        const matched = regexps[patternName].exec(this.buffer);
-
-        if (matched) {
             this.status = WallpadStatus.BUSY;
 
-            [matchedType, matchedValue] = [patternName, matched];
+            this.io.emit('error', new SCEvent({ status: eventName }));
 
-            this.buffer = '';
+            sfx.play(false);
 
-            if (this.DEBUG) console.log(`[Wallpad.parseResponse] parsed content:\n${matched} `);
+        } catch (err) {
+            console.error('[Wallpad.errorHandler] error.', err);
 
-            return true;
+        } finally {
+            this.pending = null;
+            this.status = WallpadStatus.IDLE;
         }
-    });
-
-    switch (matchedType) {
-        case 'authedUser':
-            this.#authedHandler(
-                matchedValue.toString().substring('AUTHED_'.length)
-            );
-            break;
-
-        case 'processed':
-            this.#done();
-            break;
-
-        case 'tmoney_bal':
-            this.#tmoneyBalanceHandler(matchedValue);
-            break;
-
-        default:
-            if (matchedType != null) {
-                // mostly error, if `matchedType` is not null.
-                this.#errorHandler(matchedType);
-            }
     }
-}
+
+    #tmoneyBalanceHandler(parsed) {
+        try {
+            const uint32 = /([0-9A-F]{8})/;
+            const balance = parseInt('0x' + `${parsed}`.match(uint32)[0]);
+            this.io.emit('success', Object.assign({},
+                new SCEvent({
+                    status: 'tmoneyBalance',
+                    timesTaken: 0 // leave this field only for compatiblity.
+                }),
+                { balance } // balance
+            ));
+            console.log(`[Wallpad.tmoneyBalanceHandler] T-money card has scanned. balance is ₩${balance.toLocaleString('ko-KR')}`);
+
+        } catch (err) {
+            console.error(`[Wallpad.tmoneyBalanceHandler] failed to process t-money card: ${err}`);
+
+        } finally {
+            this.status = WallpadStatus.IDLE;
+        }
+    }
+
+    #parseResponse() {
+        let [matchedType, matchedValue] = [null, null];
+
+        Object.keys(regexps).some(patternName => {
+            const matched = regexps[patternName].exec(this.buffer);
+
+            if (matched) {
+                this.status = WallpadStatus.BUSY;
+
+                [matchedType, matchedValue] = [patternName, matched];
+
+                this.buffer = '';
+
+                if (this.DEBUG) console.log(`[Wallpad.parseResponse] parsed content:\n${matched} `);
+
+                return true;
+            }
+        });
+
+        switch (matchedType) {
+            case 'authedUser':
+                this.#authedHandler(
+                    matchedValue.toString().substring('AUTHED_'.length)
+                );
+                break;
+
+            case 'processed':
+                this.#done();
+                break;
+
+            case 'tmoney_bal':
+                this.#tmoneyBalanceHandler(matchedValue);
+                break;
+
+            default:
+                if (matchedType != null) {
+                    // mostly error, if `matchedType` is not null.
+                    this.#errorHandler(matchedType);
+                }
+        }
+    }
 };
 
 module.exports = Wallpad;

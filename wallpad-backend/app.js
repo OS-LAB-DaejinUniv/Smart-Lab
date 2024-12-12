@@ -74,7 +74,7 @@ app.use((req, res, next) => {
 		});
 
 	} catch (err) {
-		console.error('[tokenValidator] error:', err);
+		console.error('[tokenValidator] Error:', err);
 
 		// res.status(500);
 		// res.json({ status: false, reason: 'tokenValidatorError' });
@@ -90,7 +90,7 @@ app.use((req, res, next) => {
 	const deviceList = await autoDetect().list();
 	const isDeviceFound = deviceList.find(device => {
 		if (device.serialNumber == config.arduino.deviceSerial) {
-			console.log(`Assigned path ${device.path} for Arduino board ${config.arduino.deviceSerial}.`);
+			console.log(`Assigned path ${device.path} for Arduino board (Serial: ${config.arduino.deviceSerial}).`);
 
 			// when if it founds..
 			config.arduino.path = device.path;
@@ -113,16 +113,16 @@ app.use((req, res, next) => {
 	arduino.on('data', data => wallpad.serialEventHandler(data));
 
 	server.listen(config.socketioConf.port, "0.0.0.0", () => {
-		console.log(`Started Socket.IO server on port ${config.socketioConf.port}.`);
+		console.log(`Socket.IO server started on port ${config.socketioConf.port}.`);
 	});
 
 	// ** belows are websocket api request handlers. **
 	io.on('connection', (wallpad) => {
-		console.log('Wallpad frontend has connected.');
+		console.log('Wallpad frontend connected.');
 
 		// responses list of all members with its current status. 
 		wallpad.on('getMemberStat', () => {
-			console.log('Got a websocket request: getMemberStat');
+			console.log('Received WebSocket request: getMemberStat');
 
 			const list = db.selectMembers();
 
@@ -131,7 +131,7 @@ app.use((req, res, next) => {
 
 		// print reason as client disconnectd.
 		wallpad.on('disconnect', (reason) => {
-			console.log('Wallpad frontend has disconnected. reason: ' + reason);
+			console.log('Wallpad frontend disconnected. Reason: ' + reason);
 		});
 	});
 
@@ -149,7 +149,7 @@ app.use((req, res, next) => {
 			res.json(adConfig);
 
 		} catch (err) {
-			console.error(`[getAdConfig] ${err}`);
+			console.error(`[getAdConfig] Error: ${err}`);
 
 			res.json(err);
 		}
@@ -192,7 +192,7 @@ app.use((req, res, next) => {
 			// update ad/config.json
 			writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
 
-			console.log('[uploadNewAd] successfully uploaded a new image:',
+			console.log('[uploadNewAd] Successfully uploaded image:',
 				`${req.file.originalname} -> ${req.file.filename}`);
 
 			res.json({ status: true });
@@ -238,7 +238,7 @@ app.use((req, res, next) => {
 			res.json({ status: true });
 
 		} catch (err) {
-			console.error(`[reorderAdList] ${err}`);
+			console.error(`[reorderAdList] Error: ${err}`);
 
 			res.status(500);
 			res.json({ status: false });
@@ -265,7 +265,7 @@ app.use((req, res, next) => {
 
 			// update ad/config.json
 			writeObjectAsJSON(config.adImageDir, 'config.json', { list: removedList });
-			console.log('[deleteAdImage] successfully deleted image:', select);
+			console.log('[deleteAdImage] Successfully deleted image:', select);
 
 			// flush cache and refresh screen if field exists.
 			if (req.body.rmcache) {
@@ -276,7 +276,7 @@ app.use((req, res, next) => {
 			res.json({ status: true });
 
 		} catch (err) {
-			console.error(`[deleteAdImage] ${err}`);
+			console.error(`[deleteAdImage] Error: ${err}`);
 
 			res.status(500);
 			res.json({ status: false });
@@ -287,7 +287,7 @@ app.use((req, res, next) => {
 
 	// refresh wallpad
 	app.post('/wallpad/refresh', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -304,7 +304,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to flush next cache: ', err.toString());
+			console.error('Failed to flush next cache: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -315,7 +315,7 @@ app.use((req, res, next) => {
 
 	// reboot wallpad
 	app.post('/wallpad/reboot', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -326,7 +326,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to run reboot command: ', err.toString());
+			console.error('Failed to execute reboot command: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -337,7 +337,7 @@ app.use((req, res, next) => {
 
 	// poweroff wallpad
 	app.post('/wallpad/poweroff', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -348,7 +348,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to run poweroff command: ', err.toString());
+			console.error('Failed to execute poweroff command: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -359,7 +359,7 @@ app.use((req, res, next) => {
 
 	// returns cpu temperature
 	app.get('/wallpad/cputemp', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			const temp = (() => {
@@ -372,7 +372,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to run tempCommand: ', err.toString());
+			console.error('Failed to read CPU temperature: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -383,7 +383,7 @@ app.use((req, res, next) => {
 
 	// returns system uptime
 	app.get('/wallpad/uptime', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			const uptime = parseInt(
@@ -395,7 +395,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to retrieve uptime: ', err.toString());
+			console.error('Failed to retrieve system uptime: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -420,8 +420,8 @@ app.use((req, res, next) => {
 		// })();
 		const amount = 10;
 
-		console.log('Got a HTTP request:', req.path);
-		console.log('페이지', page, '수량', amount);
+		console.log('Received HTTP request:', req.path);
+		console.log('Page number:', page, 'Amount:', amount);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -434,7 +434,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to retrieve card history: ', err.toString());
+			console.error('Failed to retrieve card scan history: ', err.toString());
 
 			res.status(500);
 			res.json({
@@ -446,7 +446,7 @@ app.use((req, res, next) => {
 
 	// returns member list
 	app.get('/wallpad/management/member/list', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -459,7 +459,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to retrieve member list: ', err.toString());
+			console.error('Failed to retrieve member list: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -470,7 +470,7 @@ app.use((req, res, next) => {
 
 	// returns member status code caption
 	app.get('/wallpad/management/member/statuscaption', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -483,7 +483,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to read config.memberStatusCaption: ', err.toString());
+			console.error('Failed to read config.memberStatusCaption: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -494,7 +494,7 @@ app.use((req, res, next) => {
 
 	// returns specific member info
 	app.get('/wallpad/management/member/:UUID(*)', (req, res) => {
-		console.log('Got a HTTP request:', req.path);
+		console.log('Received HTTP request:', req.path);
 
 		try {
 			if (!req.authed) throw new Error('InvalidToken');
@@ -508,7 +508,7 @@ app.use((req, res, next) => {
 			});
 
 		} catch (err) {
-			console.error('failed to retrieve member list: ', err.toString());
+			console.error('Failed to retrieve member information: ', err.toString());
 			res.status(500);
 			res.json({
 				status: false,
@@ -538,7 +538,7 @@ app.use((req, res, next) => {
 			res.json({ status: true, token });
 
 		} catch (err) {
-			console.log('[mgmtSignin] signin failed:', err);
+			console.log('[mgmtSignin] Sign-in failed:', err);
 
 			res.status(500);
 			res.json({ status: false });
@@ -553,7 +553,7 @@ app.use((req, res, next) => {
 			res.json(statusAll);
 		
 		} catch (err) {
-			console.log('[statusall] error:', err);
+			console.log('[statusall] Error:', err);
 			res.status(500);
 			res.json({ status: false });
 		}
@@ -576,7 +576,7 @@ app.use((req, res, next) => {
 
 
 		} catch (err) {
-			console.log('[verifyManagementToken] error:', err);
+			console.log('[verifyManagementToken] Error:', err);
 
 			res.status(500);
 			res.json({ status: false });

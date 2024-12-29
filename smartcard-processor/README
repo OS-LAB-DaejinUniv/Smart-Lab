@@ -1,35 +1,43 @@
-smartcard-processor.ino - 카드 인식 처리 모듈
+smartcard-processor.ino - 카드 인식 처리모듈
 
-# 개요
-월패드와 USB로 연결된 아두이노로, PN532를 통해 인식되는 카드에 대하여 자체적으로 양방향 Challenge-Response 인증을 수행함.
-부가 기능으로 카드 정보, 사용 내역 등을 인증을 통해 읽고 쓸 수 있는 기능을 포함함.
-월패드는 암호 연산을 직접 처리하지 않고, 아두이노로 제어 명령을 전송하여 스마트카드를 간접적으로 제어함.
+# Overview
+* 월패드와 USB로 연결된 아두이노로, PN532를 통해 인식되는 카드에 대하여 양방향 Challenge-Response 인증을 수행하는 기능을 제공
+* 스마트카드와 양방향 인증을 수행하여 외부에서 카드를 인증하고, 내부 인증을 통해 사용 내역을 안전하게 카드에 기록함
+* 월패드 하드웨어에서 암호 연산을 처리하지 않고 외부 하드웨어를 통하여 간접적으로 처리하여 보안성 향상 기대가 목적
 
-# 상태
-v1.0a (추가 개선 필요)
+# Latest Version
+v1.1
 
-# 작동 과정
+# Workflow
 카드 인식 -> AUTHED_<인증된 카드의 카드정보, 48바이트> -> 호스트의 로그 데이터 수신(5바이트) -> OK(로그 기록 완료시)
                      OR                                                             OR
         -> NOT_OSID(올바른 카드가 아닌 경우                                      -> SVRAUTH_ERROR(서버 인증 및 사용내역 저장 오류시)
 
-# 발생하는 오류
-1. SVRAUTH_ERROR: Server Authentication을 위한 APDU 전송 중 오류
-2. DIDN_GOT_CHALLENGE: 스마트카드에 Server Authentication을 위한 Challenge 생성을 요청하였으나 수신하지 못함.
-3. MISMATCHED_CRYPTOGRAM: 스마트카드가 생성한 Client Authentication Response가 내부에서 생성된 값과 일치하지 않음
-4. CLIENT_AUTH_ERROR: Client Authentication을 위한 APDU를 스마트카드로 전송 중 오류 발생
-5. NOT_SUPPORTED: SELECT APDU 오류. 지원하는 애플릿을 찾을 수 없음.
-6. RF_LOST: 카드와 통신 중 신호 두절
+# Types of messages
+* All binary data is output as a hex string.
 
-# 스마트카드에 기록되는 로그의 포맷
+1. AUTHED_<16-byte of response><16-byte of UUID of the card><16-byte of user configuration read fom the card>: 성공적으로 인증된 카드의 정보를 나타내는 메시지
+2. SVRAUTH_ERROR: Internal Authentication을 위하여 C-APDU를 전송하였으나 응답을 수신하지 못함
+3. DIDN_GOT_CHALLENGE: 스마트카드에 Internal Authentication을 위한 Challenge 생성을 요청하였으나 수신하지 못함.
+4. MISMATCHED_CRYPTOGRAM: 스마트카드가 External Authentication을 위해 생성한 Response가 카드 처리모듈 내부에서 생성된 값과 일치하지 않음
+5. CLIENT_AUTH_ERROR: External Authentication 절차가 비정상적으로 종료됨. 
+6. NOT_SUPPORTED: SELECT 명령 실패. 지원되는 애플릿이 존재하지 않음.
+7. TM_B_<4-byte integer>: T-money 카드의 잔액을 나타냄.
+8. OK: Internal Authentication이 정상적으로 처리됨.
+
+# Format of logs recorded on the smart card
 XX XX XX XX YY
-X: 32바이트 유닉스 타임
-Y: 카드 사용내역의 타입
+X: 32-bit unix timestamp (in seconds)
+Y: Log type
 
-타입?
-0x00: 부재중(퇴근)
-0x01: 재실
+# Defined types of log
+0x00: Absent (left work)
+0x01: Present
 
-# 사용 라이브러리
-1. CryptoAES_CBC(https://github.com/Obsttube/CryptoAES_CBC)
-2. Adafruit-PN532(https://github.com/adafruit/Adafruit-PN532
+# Changelog
+- v1.0 First working version. (Jun 30, 2024)
+- v1.1 Supports inquiry of T-money card banance. (Dec 9, 2024)
+
+# Libraries used
+1. CryptoAES_CBC (https://github.com/Obsttube/CryptoAES_CBC)
+2. Adafruit-PN532 (https://github.com/adafruit/Adafruit-PN532

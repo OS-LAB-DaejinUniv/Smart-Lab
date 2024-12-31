@@ -219,7 +219,7 @@ class Wallpad {
                 this.#done();
                 break;
 
-            case 'tmoney_bal':
+            case 'tmoneyBalance':
                 this.#tmoneyBalanceHandler(matchedValue);
                 break;
 

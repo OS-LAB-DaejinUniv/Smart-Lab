@@ -6,17 +6,21 @@
  */
 
 const regexps = {
-    // positive
+    // success
     authedUser: new RegExp(/AUTHED_[0-9A-F]{96}/),
     processed: new RegExp(/OK/),
     
-    // negative
-    notosid: new RegExp(/NOT_OSID/),
+    // error
+    notSupported: new RegExp(/NOT_SUPPORTED/),
     crypto: new RegExp(/MISMATCHED_CRYPTOGRAM/),
-    rfLost: new RegExp(/RF_DROP/),
+    
+    // failure
+    externalAuthFailed: new RegExp(/CLIENT_AUTH_ERROR/),
+    internalAuthFailed: new RegExp(/SVRAUTH_ERROR/),
+    challengeFailed: new RegExp(/DIDN_GOT_CHALLENGE/),
 
     // etc.
-    tmoney_bal: new RegExp(/TM_B_[0-9A-F]{8}/)
+    tmoneyBalance: new RegExp(/TM_B_[0-9A-F]{8}/)
 };
 
 module.exports = regexps;

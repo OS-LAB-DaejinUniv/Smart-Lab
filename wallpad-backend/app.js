@@ -1,5 +1,6 @@
 const config = require('./config');
 const Wallpad = require('./Wallpad');
+const SCEvent = require('./SCEvent');
 const express = require('express');
 const multer = require('multer');
 const http = require('http');
@@ -551,9 +552,44 @@ app.use((req, res, next) => {
 			const statusAll = db.selectMembers();
 
 			res.json(statusAll);
-		
+
 		} catch (err) {
-			console.log('[statusall] Error:', err);
+			console.log('[statusall] ', err);
+			res.status(500);
+			res.json({ status: false });
+		}
+	});
+
+	// show custom message box on wallpad screen
+	app.post('/wallpad/message', (req, res) => {
+		try {
+			const { title, message } = req.body;
+			const duration = parseInt(req.body.duration);
+
+			if (!title || !message || !duration)
+				throw new Error('Invalid Parameter(s)');
+			
+			if ((duration < 1) || (duration >= 10 * 1000))
+				throw new Error('Duration range is 1-9999');
+				
+			const content = Object.assign(
+				new SCEvent({ status: 'success', duration }),
+				{
+					custom: {
+						title, message, duration
+					}
+				}
+			)
+
+			io.emit('success', content);
+
+			console.log('[message] Showing custom messagebox on wallpad:\n' +
+				`${title} / ${message} / ${duration}`);
+
+			res.json({ status: true });
+
+		} catch (err) {
+			console.log('[message] ', err);
 			res.status(500);
 			res.json({ status: false });
 		}

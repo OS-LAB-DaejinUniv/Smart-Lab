@@ -48,7 +48,8 @@ class Wallpad {
 
     #authedHandler(data) {
         try {
-            if (this.DEBUG) console.log(`[Wallpad.authedHandler] called with data below:\n${data}`);
+            if (this.DEBUG)
+                console.log(`[Wallpad.authedHandler] called with data below:\n${data}`);
 
             // parse smartcard data(response, uuid, extra data)
             // and trying to retrieve further data from db using parsed uuid.
@@ -59,6 +60,11 @@ class Wallpad {
 
             // write changes onto the card.
             this.arduino.write(hist);
+
+            if (this.DEBUG) {
+                console.log('[Wallpad.authedHandler] Trying to write a new log:', hist);
+                console.log(`[Wallpad.authedHandler] Waiting response from NFC module..`);
+            }
 
         } catch (err) {
             console.log(`[Wallpad.authedHandler] ${err} `);
@@ -173,10 +179,7 @@ class Wallpad {
             const uint32 = /([0-9A-F]{8})/;
             const balance = parseInt('0x' + `${parsed}`.match(uint32)[0]);
             this.io.emit('success', Object.assign({},
-                new SCEvent({
-                    status: 'tmoneyBalance',
-                    timesTaken: 0 // leave this field only for compatiblity.
-                }),
+                new SCEvent({ status: 'tmoneyBalance' }),
                 { balance } // balance
             ));
             console.log(`[Wallpad.tmoneyBalanceHandler] T-money card has scanned. balance is ₩${balance.toLocaleString('ko-KR')}`);

@@ -98,6 +98,7 @@ export default function Home() {
               name={notifyStatus.name || null}
               timesTaken={notifyStatus.timesTaken}
               balance={notifyStatus.balance || null}
+              custom={notifyStatus.custom || null}
             />
           );
       })()}

@@ -9,7 +9,7 @@ import React, { memo } from 'react';
 import Image from 'next/image';
 
 const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { // emoji used as fallback of profile image.
-  const disabledColor = '#4E5968';
+  const disabledColor = '#6B7684';
   const enabledColor = '#3182F6';
 
   // `isAbsent` decides whether profile image (or emoji) are shown in grayscale or not.

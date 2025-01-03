@@ -9,6 +9,7 @@
 const query = require('./query');
 const DBException = require('./DBException');
 const TimeDiff = require('./utils/TimeDiff');
+const chalk = import('chalk');
 
 class DB {
     static isCreated = false;
@@ -79,7 +80,7 @@ class DB {
                 .run(uuid, status, at.getTime());
 
             if (updateStatusRes.changes == 1 == insHistoryRes.changes) {
-                console.log(`[DB.updateUserStatus] updated successfully. ${uuid}, stat.: ${status}, at: ${at.getTime()}`);
+                console.log(`[DB.updateUserStatus] Updated. \'status\' of ${uuid} to ${status} at ${at}`);
                 return true;
 
             } else {
@@ -87,7 +88,7 @@ class DB {
             }
 
         } catch (err) {
-            console.error(`[DB.updateUserStatus] error(s) occured. details: ${err}`);
+            console.error('[DB.updateUserStatus]', err);
 
             throw new DBException('', 'QueryFailed');
         }
@@ -113,7 +114,7 @@ class DB {
             };
 
         } catch (err) {
-            console.error(`[DB.getHoursToReturn] error(s) occured. details: ${err}`);
+            console.error('[DB.getHoursToReturn]', err);
         }
     }
 
@@ -137,7 +138,7 @@ class DB {
             };
 
         } catch (err) {
-            console.error(`[DB.getTodayWorkingHours] error(s) occured. details: ${err}`);
+            console.error('[DB.getTodayWorkingHours]', err);
         }
     }
 
@@ -159,7 +160,7 @@ class DB {
             return rows;
 
         } catch (err) {
-            console.error(`[DB.getHistory] error(s) occured. details: ${err}`);
+            console.error('[DB.getHistory]', err);
         }
     }
 };

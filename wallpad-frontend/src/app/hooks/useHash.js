@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 
 export default function useHash() {
-    let hash, setHash;
-    if (typeof window !== 'undefined') {
-        [hash, setHash] = useState(window.location.hash);
-    }
+    let [hash, setHash] = useState(
+        typeof window !== 'undefined' ? window.location.hash : ''
+    );
 
     useEffect(() => {
         const handleOnHashChange = () => {

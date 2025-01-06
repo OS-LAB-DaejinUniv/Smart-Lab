@@ -9,7 +9,6 @@
 const query = require('./query');
 const DBException = require('./DBException');
 const TimeDiff = require('./utils/TimeDiff');
-const chalk = import('chalk');
 
 class DB {
     static isCreated = false;

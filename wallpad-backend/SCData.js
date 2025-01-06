@@ -5,7 +5,6 @@
  * @version 0.1
  */
 
-const SCUserPref = require('./SCUserPref');
 const DBException = require('./DBException');
 
 class SCData {

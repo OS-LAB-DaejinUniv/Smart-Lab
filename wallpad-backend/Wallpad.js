@@ -1,29 +1,30 @@
 /**
- * @brief A component class of wallpad-backend.
- * @details Processes all kinds of data triggered from serialport event.
+ * @brief Backend component for wallpad system
+ * @details Handles serial port communication and data processing
  * @author Jay Kang
  * @date July 7, 2024
  * @version 0.1
  */
 
+const config = require('./config');
 const WallpadStatus = require('./WallpadStatus');
+const UserStatus = require('./WallpadStatus');
 const regexps = require('./regexps');
 const SCData = require('./SCData');
 const SCHisory = require('./SCHistory');
-const SCUserPref = require('./SCUserPref');
 const SCEvent = require('./SCEvent');
 const sfx = require('./sfx');
+const fs = require('fs');
+const path = require('path');
 
 class Wallpad {
     static isCreated = false;
 
     constructor(dbConn, serialConn, io) {
-        if (Wallpad.isCreated) {
-            throw new Error('Wallpad instance has already been created.');
+        if (Wallpad.isCreated)
+            throw new Error('Wallpad instance has already created.');
 
-        } else {
-            Wallpad.isCreated = true;
-        }
+        Wallpad.isCreated = true;
 
         this.db = dbConn;
         this.io = io;
@@ -31,15 +32,29 @@ class Wallpad {
 
         this.buffer = '';
         this.status = WallpadStatus.IDLE;
-        this.pending = null; // temporary SCData object. matched to the user who 'OK' response from arduino.
+        this.pending = null; // Stores authenticated user data temporarily until processing completes
+        this.extension = ((dir = config.taskScriptDir) => {
+            return fs.readdirSync(dir)
+                .filter(file => file.match(/\.js$/))
+                .reduce((list, moduleName) => {
+                    try {
+                        const module = require(path.resolve(path.join(dir, moduleName)));
+                        if (module.enabled)
+                            list[moduleName.replace('.js', '')] = module;
+
+                    } catch (err) {
+                        console.error(`[Wallpad.constructor] Failed to load extension ${moduleName}:`, err);
+                    }
+                    return list;
+                }, {});
+        })();
 
         this.DEBUG = true;
     }
 
     serialEventHandler(data) {
-        if (this.status !== WallpadStatus.IDLE) {
+        if (this.status !== WallpadStatus.IDLE)
             throw new Error('Wallpad is busy now.');
-        }
 
         this.buffer += data.toString();
 
@@ -48,26 +63,28 @@ class Wallpad {
 
     #authedHandler(data) {
         try {
-            if (this.DEBUG)
-                console.log(`[Wallpad.authedHandler] called with data below:\n${data}`);
-
-            // parse smartcard data(response, uuid, extra data)
-            // and trying to retrieve further data from db using parsed uuid.
+            // Parses smartcard data (response, uuid, extra data)
+            // and retrieves personal details from DB using card UUID
             this.pending = new SCData(this.db, data);
 
-            // new history data which will be added onto the current card.
+            if (this.DEBUG)
+                console.log('[Wallpad.authedHandler] Contents parsed:\n'
+                    + `Response: ${this.pending.response}\nUUID: ${this.pending.uuid}\nExtra: ${this.pending.extra}`
+                );
+
+            // Creates new history entry to be written to the card
             const hist = new SCHisory(new Date(), +!this.pending.status);
 
-            // write changes onto the card.
+            // Writes changes to the card
             this.arduino.write(hist);
 
             if (this.DEBUG) {
                 console.log('[Wallpad.authedHandler] Trying to write a new log:', hist);
-                console.log(`[Wallpad.authedHandler] Waiting response from NFC module..`);
+                console.log('[Wallpad.authedHandler] Waiting response from NFC module..');
             }
 
         } catch (err) {
-            console.log(`[Wallpad.authedHandler] ${err} `);
+            console.log('[Wallpad.authedHandler]', err);
 
             this.#errorHandler(err.name);
 
@@ -78,40 +95,50 @@ class Wallpad {
         }
     }
 
-    #triggerRunTasks(userPref) {
+    async #triggerRunTasks(userInfo, changedTo, memberList) {
         try {
-            if (!userPref instanceof SCUserPref) {
-                throw new Error('`pref` must be a instance of SCUserPref.');
-            }
-
-            if (Object.keys(userPref.prefs).length == 0) {
-                console.log(`[Wallpad.triggerRunTasks] no enabled tasks found on the card.`);
+            if (Object.keys(this.extension).length == 0) {
+                console.log('[Wallpad.triggerRunTasks] No enabled extensions were found.');
                 return;
             }
-
-            // list of all enabled tasks which being launched as card tagged.
-            for (const [taskName, taskInfo] of Object.entries(userPref.prefs)) {
-                console.log(`[Wallpad.triggerRunTasks] enabled, name: ${taskName}, desc: ${taskInfo.description}`);
-            }
-
-            // launches all tasks.
-            userPref.runTasks();
-
+    
+            await Promise.all(Object.keys(this.extension)
+                .map(async moduleName => {
+                    try {
+                        const module = this.extension[moduleName];
+    
+                        if (!((module.activatedStatus == changedTo) || (module.activatedStatus == '*')))
+                            return;
+                        if (!((userInfo.extra[module.activatedIndex] == 1) || (module.activatedIndex == '*')))
+                            return;
+    
+                        console.log(`[Wallpad.triggerRunTasks] Execute ${moduleName}`);
+    
+                        const result = await module.handler(userInfo, changedTo, memberList);
+                        console.log(`[Wallpad.triggerRunTasks] ${moduleName} finished`);
+                        
+                    } catch (err) {
+                        console.error(`[Wallpad.triggerRunTasks] Error in module ${moduleName}:\n`, err);
+                    }
+                })
+            );
+    
         } catch (err) {
-            console.log(`[Wallpad.triggerRunTasks] ${err}`);
+            console.error('[Wallpad.triggerRunTasks]', err);
         }
     }
+    
 
     #done() {
         try {
             if (this.pending) {
-                // '+!' reverses value between 1 and 0.
+                // Convert status between 1 and 0 using '+!' operator
                 const changedStat = +!this.pending.status;
 
-                // updates user status on db. (1/2 of DB tasks)
+                // [DB Task 1/2] Update user's work status in database
                 this.db.updateUserStatus(this.pending.uuid, changedStat, new Date());
 
-                // gets total hours of working / taken to return. (2/2 of DB tasks)
+                // [DB Task 2/2] Calculate time duration based on status
                 const timesTaken = (() => {
                     if (changedStat == 1) {
                         return this.db.getHoursToReturn(this.pending.uuid);
@@ -121,20 +148,28 @@ class Wallpad {
                     }
                 })();
 
-                // sends event to frontend.
+                // Emit status change event to frontend with user info and time data
                 this.io.emit('success',
                     new SCEvent({
-                        status: (changedStat == 0) ? 'goHome' : 'arrival',
+                        status: (changedStat === 0) ?
+                            UserStatus.LEAVE :
+                            UserStatus.ARRIVAL,
                         name: this.pending.name,
                         timesTaken
                     }));
 
-                // launch tasks according to user preference settings on card. (asynchronously)
-                if (changedStat) {
-                    setTimeout(currentUser => {
-                        this.#triggerRunTasks(currentUser.extra);
-                    }, 0, Object.assign({}, this.pending));
-                }
+                // Asynchronously launch tasks based on user's card preferences
+                setTimeout((user, memberList) => {
+                    this.#triggerRunTasks({
+                        name: user.name,
+                        position: user.position,
+                        uuid: user.uuid,
+                        extra: user.extra
+                    },
+                        changedStat,
+                        memberList
+                    );
+                }, 0, Object.assign({}, this.pending), this.db.selectMembers());
 
                 console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
                     + `pos.: ${this.pending.position}, `
@@ -143,11 +178,11 @@ class Wallpad {
                 sfx.play(true);
 
             } else {
-                throw new Error('[Wallpad.done] called illegally.');
+                throw new Error('[Wallpad.done] Called illegally.');
             }
 
         } catch (err) {
-            console.error('[Wallpad.done] error.', err);
+            console.error('[Wallpad.done]', err);
 
         } finally {
             this.pending = null;
@@ -157,7 +192,8 @@ class Wallpad {
 
     #errorHandler(eventName) {
         try {
-            if (this.DEBUG) console.log(`[Wallpad.errorHandler] due to ${eventName}`);
+            if (this.DEBUG)
+                console.log(`[Wallpad.errorHandler] Due to ${eventName}`);
 
             this.status = WallpadStatus.BUSY;
 
@@ -166,7 +202,7 @@ class Wallpad {
             sfx.play(false);
 
         } catch (err) {
-            console.error('[Wallpad.errorHandler] error.', err);
+            console.error('[Wallpad.errorHandler]', err);
 
         } finally {
             this.pending = null;
@@ -185,7 +221,7 @@ class Wallpad {
             console.log(`[Wallpad.tmoneyBalanceHandler] T-money card has scanned. balance is ₩${balance.toLocaleString('ko-KR')}`);
 
         } catch (err) {
-            console.error(`[Wallpad.tmoneyBalanceHandler] failed to process t-money card: ${err}`);
+            console.error(`[Wallpad.tmoneyBalanceHandler] Failed to process t-money card: ${err}`);
 
         } finally {
             this.status = WallpadStatus.IDLE;
@@ -205,7 +241,8 @@ class Wallpad {
 
                 this.buffer = '';
 
-                if (this.DEBUG) console.log(`[Wallpad.parseResponse] parsed content:\n${matched} `);
+                if (this.DEBUG)
+                    console.log(`[Wallpad.parseResponse] Packet parsed:\n${matched}`);
 
                 return true;
             }
@@ -228,7 +265,7 @@ class Wallpad {
 
             default:
                 if (matchedType != null) {
-                    // mostly error, if `matchedType` is not null.
+                    // Indicates an error condition when matchedType is not null
                     this.#errorHandler(matchedType);
                 }
         }

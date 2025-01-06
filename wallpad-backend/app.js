@@ -71,7 +71,7 @@ app.use((req, res, next) => {
 
 		jwt.verify(token, config.webUICreds.jwtSecret, err => {
 			req.authed = (!err) ? true : false;
-			console.log('[tokenValidator]', req.authed);
+			// console.log('[tokenValidator]', req.authed);
 		});
 
 	} catch (err) {

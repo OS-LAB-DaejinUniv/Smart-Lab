@@ -21,7 +21,7 @@ const config = {
         ]
     },
     memberStatusCaption: ["퇴실", "재실", "수업"],
-    taskScriptDir: './SCUserPrefTasks/',
+    taskScriptDir: './extensions/',
     nextCacheDir: '../wallpad-frontend/.next/cache',
     adImageDir: './assets/ad',
     dbPath: 'wallpad.db',

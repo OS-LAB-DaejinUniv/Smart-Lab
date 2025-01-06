@@ -574,75 +574,15 @@ function SystemSection() {
 
 // contents of the section `#logs`.
 function LogsSection() {
-    const [logs, setLogs] = useState(null);
-    const statusCaption = (() => {
-        const statusCaptionURL = new URL('/wallpad/management/member/statuscaption', `http://${location.hostname}:${backendPort}`);
+    const [logs, setLogs] = useState([]);
+    const [UUIDName, setUUIDName] = useState({});
+    const [statusCaption, setStatusCaption] = useState({});
+    const [filter, setFilter] = useState(null);
 
-        fetch(statusCaptionURL, {
-            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
-        })
-            .then(res => res.json())
-            .then(async body => {
-                if (body.status) {
-                    return body.caption;
-                }
-                throw new Error();
-            })
-            .catch(async err => {
-                console.error('failed to fetch StatusCaption', err);
-                return null;
-            });
-    })();
-    const memberList = (() => {
-        const url = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
-
-        return fetch(url, {
-            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
-        })
-            .then(res => res.json())
-            .then(async body => {
-                if (body.status) {
-                    return body.rows;
-                }
-                throw new Error();
-            })
-            .catch(async err => {
-                console.error('failed to fetch member list', err);
-                return null;
-            });
-    })();
-    let [filter, setFilter] = useState(null);
-    let UUIDName = {};
-    let [isRender, setIsRender] = useState(false);
-
-    /*
-    1. retrieve member list.
-    2. initialize filters.
-    3. fetch scan history.
-    4. resolve uuid based on member list.
-    */
-
-    // initialize section
-    useEffect(() => {
-        initUUIDName();
-        initFilter();
-    }, []);
-
-    function initUUIDName() {
-        if (!memberList) return;
-
-        memberList
-            .then(memberList => {
-                Object.assign(UUIDName, memberList.map(item => ({ [item.uuid]: item.name })));
-            });
-        console.log('initUUIDName: done', UUIDName);
-    };
-
-    function initFilter() {
+    function updateFilter() {
         if (!filter) {
             // initialize filters
-            setFilter({});
-            memberList
+            fetchMemberList()
                 .then(memberList => {
                     let uuid = {};
                     memberList.forEach(item =>
@@ -650,7 +590,6 @@ function LogsSection() {
                     );
                     setFilter({ uuid, datetime: {} });
                 });
-            console.log('initFilter: done', filter);
         }
     };
 
@@ -677,7 +616,6 @@ function LogsSection() {
             .then(async body => {
                 if (body.status) {
                     setLogs(body.rows);
-                    setIsRender(true);
                     return;
                 }
                 throw new Error();
@@ -688,26 +626,76 @@ function LogsSection() {
             });
     };
 
+    function fetchMemberList() {
+        const url = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
 
+        return fetch(url, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    return body.rows;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch member list', err);
+                return;
+            });
+    };
 
-    // resolves UUID to real username. 
+    function fetchStatusCaption() {
+        const statusCaptionURL = new URL('/wallpad/management/member/statuscaption', `http://${location.hostname}:${backendPort}`);
+
+        fetch(statusCaptionURL, {
+            headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+        })
+            .then(res => res.json())
+            .then(async body => {
+                if (body.status) {
+                    setStatusCaption(body.caption);
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(async err => {
+                console.error('failed to fetch StatusCaption', err);
+                return;
+            });
+    }
+
     function resolveUUID(uuid) {
+        const selectMemberURL = new URL(`/wallpad/management/member/${uuid}`, `http://${location.hostname}:${backendPort}`);
+
         if (UUIDName.hasOwnProperty(uuid)) {
-            // returns name if UUID already has been resolved before.
             return UUIDName[uuid];
 
         } else {
-            return '오류';
+            return fetch(selectMemberURL, {
+                headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
+            })
+                .then(res => res.json())
+                .then(async body => {
+                    if (body.status) {
+                        setUUIDName(Object.assign(UUIDName, { [uuid]: body.row.name }));
+                        return body.row.name;
+                    }
+                    throw new Error();
+                })
+                .catch(async err => {
+                    console.error('failed to fetch memberList', err);
+                    return '??';
+                });
         }
     };
 
+    // initialize lookup section
+    useEffect(() => {
+        fetchStatusCaption();
+        updateFilter();
+    }, []);
 
-
-    if (!isRender) {
-        console.log('아직렌더링못함', isRender);
-        return null;
-    }
-    console.log('렌더링가능', logs);
     return (
         <>
             <div className='flex flex-col space-y-5 pb-[7rem]'>
@@ -743,7 +731,7 @@ function LogsSection() {
                                                                     setFilter({ ...filter });
                                                                 }}
                                                             />
-                                                            <label className="pt-[.1rem]">{UUIDName[key] || resolveUUID(key)}</label>
+                                                            <label className="pt-[.1rem]">{resolveUUID(key)}</label>
                                                         </DropdownMenuItem>
                                                     ))
                                                 })()
@@ -764,7 +752,6 @@ function LogsSection() {
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem><Input /></DropdownMenuItem>
                                             <DropdownMenuItem>
-                                                dsfsd
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -779,7 +766,7 @@ function LogsSection() {
 
                                     {/* name */}
                                     <TableCell>
-                                        {UUIDName[log.uuid] || resolveUUID(log.uuid)}
+                                        {resolveUUID(log.uuid)}
                                     </TableCell>
 
                                     {/* UUID (tooltip: full UUID)  */}
@@ -907,9 +894,37 @@ function LogsSection() {
 
 function SmartcardSection() {
     let [memberList, setMemberList] = useState([]);
+    const positionText = ['부원', '랩장', '수습부원'];
+
+    // 각 모달의 상태를 관리하는 state
+    let [isOpenNameDialog, setIsOpenNameDialog] = useState(false);
+    let [isOpenCardDialog, setIsOpenCardDialog] = useState(false);
+    let [isOpenNicknameDialog, setIsOpenNicknameDialog] = useState(false);
+    let [isOpenPositionDialog, setIsOpenPositionDialog] = useState(false);
+
+    // 현재 수정 중인 멤버의 정보를 저장하는 state
+    let [currentMember, setCurrentMember] = useState(null);
+
+    // 입력값을 저장하는 state
+    let [newName, setNewName] = useState('');
+    let [newCard, setNewCard] = useState('');
+    let [newNickname, setNewNickname] = useState('');
+    let [newPosition, setNewPosition] = useState('');
+
+    // 입력값 검증 오류 메시지를 저장하는 state
+    let [cardError, setCardError] = useState('');
+    let [addMemberError, setAddMemberError] = useState('');
+
+    let [addMemberName, setAddMemberName] = useState('');
+    let [addMemberCard, setAddMemberCard] = useState('');
+    let [addMemberNickname, setAddMemberNickname] = useState('');
+    let [addMemberPosition, setAddMemberPosition] = useState('');
+
+    let [isOpenAddMemberDialog, setIsOpenAddMemberDialog] = useState(false);
 
     function fetchMembetList() {
         const memberListURL = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
+        const addMemberURL = new URL('/wallpad/management/member', `http://${location.hostname}:${backendPort}`);
 
         fetch(memberListURL, {
             headers: { 'Authorization': (typeof window !== undefined ? window.localStorage.getItem('token') : '') }
@@ -932,21 +947,398 @@ function SmartcardSection() {
         fetchMembetList();
     }, []);
 
+    const addNewMember = async () => {
+        // 입력값 검증
+        if (!addMemberName || !addMemberCard || !addMemberPosition) {
+            setAddMemberError('모든 필수 항목을 입력하세요.');
+            return;
+        }
+
+        if (!validateCardNumber(addMemberCard)) {
+            setAddMemberError('카드 번호는 32자리의 16진수여야 합니다.');
+            return;
+        }
+
+        try {
+            const response = await fetch(addMemberURL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': window.localStorage.getItem('token')
+                },
+                body: JSON.stringify({
+                    name: addMemberName,
+                    card: addMemberCard,
+                    nickname: addMemberNickname,
+                    position: parseInt(addMemberPosition)
+                })
+            });
+
+            if (response.ok) {
+                // 성공 시 목록 새로고침 및 모달 초기화
+                fetchMembetList();
+                setIsOpenAddMemberDialog(false);
+                setAddMemberName('');
+                setAddMemberCard('');
+                setAddMemberNickname('');
+                setAddMemberPosition('');
+                setAddMemberError('');
+            }
+        } catch (error) {
+            console.error('Failed to add new member:', error);
+            setAddMemberError('구성원 추가에 실패했습니다.');
+        }
+    };
+
+    // 출입카드 번호 유효성 검사
+    const validateCardNumber = (card) => {
+        const hexRegex = /^[0-9A-Fa-f]{32}$/;
+        return hexRegex.test(card);
+    };
+
+    // 각 정보 수정을 위한 API 호출 함수들
+    const updateName = async () => {
+        try {
+            const response = await fetch(`/api/member/${currentMember.id}/name`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': window.localStorage.getItem('token')
+                },
+                body: JSON.stringify({ name: newName })
+            });
+
+            if (response.ok) {
+                fetchMembetList();
+                setIsOpenNameDialog(false);
+            }
+        } catch (error) {
+            console.error('Failed to update name:', error);
+        }
+    };
+
+    const updateCard = async () => {
+        if (!validateCardNumber(newCard)) {
+            setCardError('카드 번호는 32자리의 16진수여야 합니다.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/member/${currentMember.id}/card`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': window.localStorage.getItem('token')
+                },
+                body: JSON.stringify({ card: newCard })
+            });
+
+            if (response.ok) {
+                fetchMembetList();
+                setIsOpenCardDialog(false);
+                setCardError('');
+            }
+        } catch (error) {
+            console.error('Failed to update card:', error);
+        }
+    };
+
+    const updateNickname = async () => {
+        try {
+            const response = await fetch(`/api/member/${currentMember.id}/nickname`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': window.localStorage.getItem('token')
+                },
+                body: JSON.stringify({ nickname: newNickname })
+            });
+
+            if (response.ok) {
+                fetchMembetList();
+                setIsOpenNicknameDialog(false);
+            }
+        } catch (error) {
+            console.error('Failed to update nickname:', error);
+        }
+    };
+
+    const updatePosition = async () => {
+        try {
+            const response = await fetch(`/api/member/${currentMember.id}/position`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': window.localStorage.getItem('token')
+                },
+                body: JSON.stringify({ position: parseInt(newPosition) })
+            });
+
+            if (response.ok) {
+                fetchMembetList();
+                setIsOpenPositionDialog(false);
+            }
+        } catch (error) {
+            console.error('Failed to update position:', error);
+        }
+    };
+
     return (
         <>
             <div className='flex flex-col space-y-5'>
-                <div>
+                <div className="flex justify-between items-center">
+                    <Button
+                        className="w-[8rem] h-9 bg-gray-100 hover:bg-gray-200 text-black"
+                        onClick={() => setIsOpenAddMemberDialog(true)}
+                    >
+                        새 구성원 추가
+                    </Button>
+                </div>
+                <div className='space-y-2 w-[25rem]'>
                     {
                         memberList.map(member => {
                             return (
-                                <p>
-                                    {`${member.uuid} ${member.name}`}
-                                </p>
+                                <div key={member.id} className="p-3 bg-slate-100 rounded-md">
+                                    <p className="font-semibold">
+                                        {`${positionText[member.position]} ${member.name}`}
+                                    </p>
+                                    <div className="flex mt-1.5 text-sm space-x-2">
+                                        <button
+                                            className="underline"
+                                            onClick={() => {
+                                                setCurrentMember(member);
+                                                setNewName(member.name);
+                                                setIsOpenNameDialog(true);
+                                            }}>
+                                            이름 변경
+                                        </button>
+                                        <button
+                                            className="underline"
+                                            onClick={() => {
+                                                setCurrentMember(member);
+                                                setNewCard('');
+                                                setCardError('');
+                                                setIsOpenCardDialog(true);
+                                            }}>
+                                            출입카드 변경
+                                        </button>
+                                        <button
+                                            className="underline"
+                                            onClick={() => {
+                                                setCurrentMember(member);
+                                                setNewNickname(member.nickname || '');
+                                                setIsOpenNicknameDialog(true);
+                                            }}>
+                                            닉네임 변경
+                                        </button>
+                                        <button
+                                            className="underline"
+                                            onClick={() => {
+                                                setCurrentMember(member);
+                                                setNewPosition(member.position.toString());
+                                                setIsOpenPositionDialog(true);
+                                            }}>
+                                            직책 변경
+                                        </button>
+                                    </div>
+                                </div>
                             )
                         })
                     }
                 </div>
             </div>
+
+            <AlertDialog open={isOpenAddMemberDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>새 구성원 추가</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            새로운 구성원의 정보를 입력하세요.
+                        </AlertDialogDescription>
+                        <div className="space-y-4 mt-4">
+                            <div>
+                                <label className="text-sm font-medium">이름 *</label>
+                                <Input
+                                    value={addMemberName}
+                                    onChange={(e) => setAddMemberName(e.target.value)}
+                                    className="mt-1.5"
+                                    placeholder="구성원 이름"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">출입카드 UUID *</label>
+                                <Input
+                                    value={addMemberCard}
+                                    onChange={(e) => setAddMemberCard(e.target.value)}
+                                    className="mt-1.5"
+                                    placeholder="32자리 16진수"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">GitHub 닉네임</label>
+                                <Input
+                                    value={addMemberNickname}
+                                    onChange={(e) => setAddMemberNickname(e.target.value)}
+                                    className="mt-1.5"
+                                    placeholder="프로필 사진을 불러올 GitHub 사용자 이름"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">직책 *</label>
+                                <Select value={addMemberPosition} onValueChange={setAddMemberPosition}>
+                                    <SelectTrigger className="mt-1.5">
+                                        <SelectValue placeholder="직책 선택" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0">부원</SelectItem>
+                                        <SelectItem value="1">랩장</SelectItem>
+                                        <SelectItem value="2">수습부원</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {addMemberError && <p className="text-red-500 text-sm">{addMemberError}</p>}
+                        </div>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => {
+                                setIsOpenAddMemberDialog(false);
+                                setAddMemberError('');
+                            }}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
+                            onClick={addNewMember}>
+                            추가
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+
+            {/* 이름 변경 모달 */}
+            <AlertDialog open={isOpenNameDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>이름 변경</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            새로운 이름을 입력하세요.
+                        </AlertDialogDescription>
+                        <Input
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            className="mt-2"
+                        />
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenNameDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
+                            onClick={updateName}>
+                            변경
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* 출입카드 변경 모달 */}
+            <AlertDialog open={isOpenCardDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>출입카드 변경</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            새로운 출입카드 번호를 입력하세요. (32자리 16진수)
+                        </AlertDialogDescription>
+                        <Input
+                            value={newCard}
+                            onChange={(e) => setNewCard(e.target.value)}
+                            className="mt-2"
+                        />
+                        {cardError && <p className="text-red-500 text-sm mt-1">{cardError}</p>}
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenCardDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
+                            onClick={updateCard}>
+                            변경
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* 닉네임 변경 모달 */}
+            <AlertDialog open={isOpenNicknameDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>닉네임 변경</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            프로필 사진을 불러올 GitHub 사용자 이름을 입력하세요.
+                        </AlertDialogDescription>
+                        <Input
+                            value={newNickname}
+                            onChange={(e) => setNewNickname(e.target.value)}
+                            className="mt-2"
+                        />
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenNicknameDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
+                            onClick={updateNickname}>
+                            변경
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* 직책 변경 모달 */}
+            <AlertDialog open={isOpenPositionDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>직책 변경</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            새로운 직책을 선택하세요.
+                        </AlertDialogDescription>
+                        <Select value={newPosition} onValueChange={setNewPosition}>
+                            <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="직책 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="0">부원</SelectItem>
+                                <SelectItem value="1">랩장</SelectItem>
+                                <SelectItem value="2">수습부원</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
+                            onClick={() => setIsOpenPositionDialog(false)}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
+                            onClick={updatePosition}>
+                            변경
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 };

@@ -19,7 +19,6 @@ class SCData {
         this.response = authedResp.substring(0  * 2, 16 * 2);
         this.uuid     = authedResp.substring(16 * 2, 32 * 2);
         this.extra    = authedResp.substring(32 * 2, 48 * 2);
-        // this.extra    = new SCUserPref(this.extra);
 
         // will be filled after query executed.
         this.name = null;
@@ -35,9 +34,9 @@ class SCData {
         try {
             const row = this.db.selectMemberByUUID(this.uuid);
 
-            Object.keys(row).forEach(key => {
-                this[key] = row[key];
-            });
+            Object.keys(row).forEach(key => 
+                this[key] = row[key]
+            );
 
             return this;
         

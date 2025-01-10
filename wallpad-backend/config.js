@@ -14,7 +14,7 @@ const config = {
         username: "admin",
         password: "password",
         jwtSecret: "change-this-secret-to-yours",
-        frontendPort: 3000,
+        frontendPort: 5000,
         permitConcurrentLogin: false,
         allowedIPs: [
             "0.0.0.0"
@@ -22,6 +22,7 @@ const config = {
     },
     memberStatusCaption: ["퇴실", "재실", "수업"],
     taskScriptDir: './extensions/',
+    taskScriptTimeout: 2000,
     nextCacheDir: '../wallpad-frontend/.next/cache',
     adImageDir: './assets/ad',
     dbPath: 'wallpad.db',

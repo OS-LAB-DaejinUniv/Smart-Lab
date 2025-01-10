@@ -16,6 +16,8 @@ const SCEvent = require('./SCEvent');
 const sfx = require('./sfx');
 const fs = require('fs');
 const path = require('path');
+const Extension = require('./Extension');
+const { Worker } = require('worker_threads');
 
 class Wallpad {
     static isCreated = false;
@@ -33,23 +35,29 @@ class Wallpad {
         this.buffer = '';
         this.status = WallpadStatus.IDLE;
         this.pending = null; // Stores authenticated user data temporarily until processing completes
-        this.extension = ((dir = config.taskScriptDir) => {
-            return fs.readdirSync(dir)
-                .filter(file => file.match(/\.js$/))
-                .reduce((list, moduleName) => {
-                    try {
-                        const module = require(path.resolve(path.join(dir, moduleName)));
-                        if (module.enabled)
-                            list[moduleName.replace('.js', '')] = module;
-
-                    } catch (err) {
-                        console.error(`[Wallpad.constructor] Failed to load extension ${moduleName}:`, err);
-                    }
-                    return list;
-                }, {});
-        })();
+        this.extension = this.loadExtensions();
 
         this.DEBUG = true;
+    }
+
+    loadExtensions(dir = config.taskScriptDir) {
+        const list = fs.readdirSync(dir)
+            .filter(file => file.match(/\.js$/))
+            .reduce((list, extensionName) => {
+                try {
+                    const module = require(path.resolve(path.join(dir, extensionName)));
+                    if (module.enabled && module instanceof Extension)
+                        list.push(extensionName.replace('.js', ''));
+
+                } catch (err) {
+                    console.error(`[Wallpad.constructor] Failed to load extension ${extensionName}:`, err);
+                }
+
+                return list;
+            }, []);
+
+        console.log(`[Wallpad.loadExtensions] Successfully loaded ${list.length} enabled extensions.\n`, list);
+        return list;
     }
 
     serialEventHandler(data) {
@@ -95,39 +103,73 @@ class Wallpad {
         }
     }
 
-    async #triggerRunTasks(userInfo, changedTo, memberList) {
+    #runExtensionWorker(extensionName, userInfo, changedTo, memberList) {
+        return new Promise(resolve => {
+            const worker = new Worker(path.resolve('./ExtensionWorker.js'),
+                {
+                    workerData: {
+                        extensionPath: path.resolve(config.taskScriptDir, extensionName + '.js'),
+                        extensionName,
+                        userInfo, changedTo, memberList
+                    }
+                });
+
+            const timeoutHandle = setTimeout(() => {
+                console.error('[Wallpad.runExtensionWorker] [STOP] Timed out:', extensionName);
+                worker.terminate()
+                    .then(() => resolve(false));
+            }, config.taskScriptTimeout);
+
+            worker.on('message', result => {
+                console.log(`[Wallpad.runExtensionWorker] [${result.status ? 'FINISH' : 'STOP'}]`, extensionName);
+
+                // Terminate the worker and resolve the promise
+                worker.terminate()
+                    .then(() => resolve(result.status));
+            });
+
+            worker.on('exit', () => {
+                clearTimeout(timeoutHandle);
+                console.log(`[Wallpad.runExtensionWorker] ${extensionName} has been terminated.`);
+            });
+        });
+    }
+
+    #triggerRunTasks(userInfo, changedTo, memberList) {
         try {
-            if (Object.keys(this.extension).length == 0) {
+            if (this.extension.length == 0) {
                 console.log('[Wallpad.triggerRunTasks] No enabled extensions were found.');
                 return;
             }
-    
-            await Promise.all(Object.keys(this.extension)
-                .map(async moduleName => {
-                    try {
-                        const module = this.extension[moduleName];
-    
-                        if (!((module.activatedStatus == changedTo) || (module.activatedStatus == '*')))
-                            return;
-                        if (!((userInfo.extra[module.activatedIndex] == 1) || (module.activatedIndex == '*')))
-                            return;
-    
-                        console.log(`[Wallpad.triggerRunTasks] Execute ${moduleName}`);
-    
-                        const result = await module.handler(userInfo, changedTo, memberList);
-                        console.log(`[Wallpad.triggerRunTasks] ${moduleName} finished`);
-                        
-                    } catch (err) {
-                        console.error(`[Wallpad.triggerRunTasks] Error in module ${moduleName}:\n`, err);
+
+            this.extension.forEach(extensionName => {
+                try {
+                    // 1. Dynamically require the extension
+                    const module = require(path.resolve(config.taskScriptDir, extensionName));
+
+                    // 2. Skip extension if it does not match the user's status or index
+                    if (
+                        !(['*', changedTo].includes(module.activatedStatus)) ||
+                        !((userInfo.extra[module.activatedIndex] == 1) || (module.activatedIndex == '*'))
+                    ) {
+                        console.log('[Wallpad.triggerRunTasks] [SKIP]', extensionName);
+                        return;
                     }
-                })
-            );
-    
+
+                    // 3. Attempt to execute Extension.handler
+                    this.#runExtensionWorker(extensionName, userInfo, changedTo, memberList);
+                    console.log('[Wallpad.triggerRunTasks] [EXECUTE]', extensionName);
+
+                } catch (err) {
+                    console.error('[Wallpad.triggerRunTasks] [ERROR]', extensionName);
+                    console.error(err);
+                }
+            });
+
         } catch (err) {
-            console.error('[Wallpad.triggerRunTasks]', err);
+            console.error('[Wallpad.triggerRunTasks] Error occured while executing', extensionName, '\n', err);
         }
     }
-    
 
     #done() {
         try {

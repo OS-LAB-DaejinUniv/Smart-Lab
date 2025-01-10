@@ -568,10 +568,10 @@ app.use((req, res, next) => {
 
 			if (!title || !message || !duration)
 				throw new Error('Invalid Parameter(s)');
-			
+
 			if ((duration < 1) || (duration >= 10 * 1000))
 				throw new Error('Duration range is 1-9999');
-				
+
 			const content = Object.assign(
 				new SCEvent({ status: 'success', duration }),
 				{
@@ -592,6 +592,27 @@ app.use((req, res, next) => {
 			console.log('[message] ', err);
 			res.status(500);
 			res.json({ status: false });
+		}
+	});
+
+	// Reload extensions
+	app.post('/wallpad/extension/reloadall', (req, res) => {
+		try {
+			if (!req.authed) throw new Error('InvalidToken');
+
+			wallpad.loadExtensions();
+
+			res.json({
+				status: true,
+			});
+
+		} catch (err) {
+			console.error('Failed to reload extensions: ', err.toString());
+			res.status(500);
+			res.json({
+				status: false,
+				reason: err
+			})
 		}
 	});
 

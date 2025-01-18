@@ -1,5 +1,4 @@
 import 'dart:collection';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import '../assets/CardCommand.dart' as CardCommand;
@@ -9,14 +8,17 @@ import 'dart:convert';
 
 NFCAvailability _availability = NFCAvailability.not_supported;
 
-nfcOperation(String operation) async {
-  debugPrint('called nfcOperation');
+nfcOperation(String operation, [Uint8List? challengeBytes]) async {
+  debugPrint('[nfcOperation] Starting in $operation mode..');
 
   try {
+    print('카드 찾는 중..');
     await FlutterNfcKit.poll(); // starts to find available tag.
+    print('카드 찾음');
 
     var selectResult = await FlutterNfcKit.transceive(
         CardCommand.SELECT_OSLABID); // select OSLabID applet.
+    print('애플릿 선택성공');
 
     // if not a appropriate card found.
     if ((selectResult[0] != 0x90) && (selectResult[1] != 0x00)) {
@@ -28,6 +30,7 @@ nfcOperation(String operation) async {
       throw Error();
     }
 
+    print('모드에 따른 처리');
     // processes selected operation.
     switch (operation) {
       case 'READ_INFO':
@@ -74,6 +77,20 @@ nfcOperation(String operation) async {
           'extra': resp_extra.map((c) => c.toRadixString(16).padLeft(2, '0')).join().toUpperCase(),
           'history': history
         };
+
+      case 'EXTERNAL_AUTH':
+        if (challengeBytes == null) {
+            throw Error();
+          }
+          List<Uint8List> list = [
+            CardCommand.EXTERNAL_AUTH,
+            Uint8List.fromList(challengeBytes)
+          ];
+          final Uint8List capdu = list.reduce((x, y) => Uint8List.fromList(x + y));
+          final Uint8List rapdu = await FlutterNfcKit.transceive(capdu)
+              .then((resp) { return resp.sublist(0, 48); });
+
+          return rapdu.map((c) => c.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
 
       case 'FINISH_SESSION':
         await FlutterNfcKit.finish();

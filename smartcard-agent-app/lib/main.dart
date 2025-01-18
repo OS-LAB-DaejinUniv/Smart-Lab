@@ -1,6 +1,9 @@
 import 'dart:ui';
 
+// Import page widgets
 import 'package:djce_oslab_screader/CardinfoPage.dart';
+import 'package:djce_oslab_screader/OSPassQR.dart';
+
 import 'package:djce_oslab_screader/utils/nfcOperation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -132,7 +135,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   fontWeight: FontWeight.w700)),
                           Gap(12),
                           mainMenuEntry(
-                              '🪪', '부원증 관리', '부원증을 조회하거나 개인 설정을 변경할 수 있어요.',
+                              '🪪', '부원증 관리', 'ID 카드를 조회하고 개인 설정값을 변경할 수 있어요.',
                               () async { processReadCard(); }
                           ),
                           Gap(16),
@@ -170,7 +173,14 @@ class _MyHomePageState extends State<MyHomePage> {
                               '연구실 인트라넷 홈페이지가 열려요. VPN 접속이 필요해요.', () {
                             launchUrlString('http://portal.oslab/',
                                 mode: LaunchMode.externalApplication);
-                          })
+                          }),
+                          Gap(16),
+                          mainMenuEntry('🧑‍💻️', 'OSPASS TEST1',
+                              '검증 요청 테스트(/api/v1/card-response)', () {
+                                // open a qr scanner
+                                Navigator.of(context)
+                                    .push(MaterialPageRoute(builder: (context) => OSPassQRScanner()));
+                              })
                         ]))) // This trailing comma makes auto-formatting nicer for build methods.
             ));
   }

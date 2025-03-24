@@ -41,16 +41,12 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_native_splash: ^2.4.1
   ionicons: ^0.2.2
-<<<<<<< Updated upstream
-  qr_code_dart_scan: ^0.9.4
   hex: ^0.2.0
-=======
   flutter_local_notifications: ^18.0.1
   permission_handler: ^11.4.0
   dio: ^5.8.0+1
   flutter_background_service: ^5.1.0
   flutter_client_sse: ^2.0.3
->>>>>>> Stashed changes
 
 dev_dependencies:
   flutter_test:

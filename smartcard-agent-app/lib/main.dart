@@ -4,7 +4,6 @@ import 'dart:ui';
 
 // Import page widgets
 import 'package:djce_oslab_screader/CardinfoPage.dart';
-import 'package:djce_oslab_screader/OSPassQR.dart';
 
 import 'package:djce_oslab_screader/utils/nfcOperation.dart';
 import 'package:flutter/material.dart';
@@ -22,9 +21,12 @@ import 'Constant.dart';
 
 // untested
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
+import 'ListenSSE.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ListenSSE();
+  
   runApp(const MyApp());
 }
 
@@ -63,54 +65,6 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _permissionWithNotification();
     _initialization();
-    _listenPush();
-  }
-
-  void _listenPush() async {
-    final FlutterLocalNotificationsPlugin _local =
-    FlutterLocalNotificationsPlugin();
-    const AndroidNotificationDetails androidNotificationDetails =
-    AndroidNotificationDetails(
-      'push_common',
-      '모든 알림',
-      channelDescription: 'OSTools 알림',
-      importance: Importance.max,
-      priority: Priority.high,
-      ticker: 'ticker',
-    );
-
-    const NotificationDetails notificationDetails =
-    NotificationDetails(android: androidNotificationDetails);
-
-    try {
-      final sseStream = SSEClient.subscribeToSSE(
-        url: SSE_BROADCAST,
-        header: {"Accept": "text/event-stream"},
-        method: SSERequestType.GET,
-      );
-
-      sseStream.listen(
-            (event) {
-          debugPrint('Received SSE event: ${event.data}');
-          _local.show(
-            0,
-            '새로운 알림',
-            event.data,
-            notificationDetails,
-            payload: 'test_payload',
-          );
-        },
-        onError: (error) {
-          debugPrint('SSE Error: $error');
-        },
-        onDone: () {
-          debugPrint('SSE Done');
-        },
-        cancelOnError: false,
-      );
-    } catch (e) {
-      debugPrint('SSE Connection Error: $e');
-    }
   }
 
   void _initialization() async {
@@ -221,16 +175,10 @@ class _MyHomePageState extends State<MyHomePage> {
                                   fontWeight: FontWeight.w700)),
                           Gap(12),
                           mainMenuEntry(
-<<<<<<< Updated upstream
-                              '🪪', '부원증 관리', 'ID 카드를 조회하고 개인 설정값을 변경할 수 있어요.',
-                              () async { processReadCard(); }
-                          ),
-=======
                               '🪪', '카드 관리', 'ID 카드를 읽거나 개인 설정을 변경할 수 있어요.',
                               () async {
                             processReadCard();
                           }),
->>>>>>> Stashed changes
                           Gap(16),
                           mainMenuEntry(
                               '📂', 'SlimVault', '중요한 파일을 부원증에 안전하게 보관하세요.',
@@ -266,17 +214,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               () {
                             launchUrlString('http://devportal.oslab/',
                                 mode: LaunchMode.externalApplication);
-                          }),
-<<<<<<< Updated upstream
-                          Gap(16),
-                          mainMenuEntry('🧑‍💻️', 'OSPASS TEST1',
-                              '검증 요청 테스트(/api/v1/card-response)', () {
-                                // open a qr scanner
-                                Navigator.of(context)
-                                    .push(MaterialPageRoute(builder: (context) => OSPassQRScanner()));
-                              })
-=======
->>>>>>> Stashed changes
+                          })
                         ]))) // This trailing comma makes auto-formatting nicer for build methods.
             ));
   }

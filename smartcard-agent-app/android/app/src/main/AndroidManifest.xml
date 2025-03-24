@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 권한 설정 (manifest 바로 아래) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -9,11 +9,15 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
-    <!-- 첫 번째 queries 블록 -->
+    <!-- Consolidated queries block -->
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
         </intent>
     </queries>
 
@@ -22,7 +26,6 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- 메인 액티비티 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,7 +48,12 @@
             </intent-filter>
         </activity>
 
-        <!-- 알림 리시버 1 -->
+        <!-- Background Service -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Notification Receiver 1 -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
             android:exported="false">
@@ -57,27 +65,18 @@
             </intent-filter>
         </receiver>
 
-        <!-- 알림 리시버 2 -->
+        <!-- Notification Receiver 2 -->
         <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
-            android:exported="false" />
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
 
-        <!-- 플러터 임베딩 설정 -->
+        <!-- Flutter Embedding Configuration -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- 알림 아이콘 설정 -->
+        <!-- Notification Icon Configuration -->
         <meta-data
             android:name="com.dexterous.flutterlocalnotifications.DefaultIcon"
             android:resource="@drawable/ic_stat_notification" />
     </application>
-
-    <!-- 두 번째 queries 블록 -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
 </manifest>

@@ -5,13 +5,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:flutter_client_sse/constants/sse_request_type_enum.dart';
-import 'package:flutter_client_sse/flutter_client_sse.dart';
+// import 'package:flutter_client_sse/flutter_client_sse.dart';
+import 'utils/my_sse_client.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'Constant.dart';
 
-// iOS Configuration
-IosConfiguration iosConf = IosConfiguration(
+// Platform specific configurations
+IosConfiguration iosConf = IosConfiguration( // iOS
   autoStart: true,
   onForeground: onStart,
 // onBackground: onIosBackground, // Ensure this is handled if needed
@@ -19,12 +20,10 @@ IosConfiguration iosConf = IosConfiguration(
 
 // Android Configuration
 AndroidConfiguration androidConf = AndroidConfiguration(
-// this will be executed when app is in foreground or background in separated isolate
   onStart: onStart,
-
-// auto start service
   autoStart: true,
-  isForegroundMode: true,
+  isForegroundMode: false,
+  autoStartOnBoot: true,
 
   notificationChannelId: 'my_foreground',
   initialNotificationTitle: 'AWESOME SERVICE',
@@ -32,20 +31,42 @@ AndroidConfiguration androidConf = AndroidConfiguration(
   foregroundServiceNotificationId: 54,
   foregroundServiceTypes: [AndroidForegroundType.dataSync],
 );
+// ===== END CONFIGURATION =====
 
-// 1. Handle background service to start
-Future<void> ListenSSE() async {
+// UNTESTED CODES
+void startBackgroundService() {
   final service = FlutterBackgroundService();
-  await service.configure(
-    iosConfiguration: iosConf,
-    androidConfiguration: androidConf,
-  );
-
-// 2. Start background service!!
   service.startService();
 }
 
-// Entry Point
+void stopBackgroundService() {
+  final service = FlutterBackgroundService();
+  service.invoke("stop");
+}
+// ===== END UNTESTED =====
+
+Future<void> ListenSSE() async {
+  final service = FlutterBackgroundService();
+
+  await service.configure(
+    iosConfiguration: iosConf,
+    androidConfiguration: androidConf
+  );
+
+  // 1. Start background service
+  service.startService();
+}
+
+// ===== ENTRY POINT =====
+// iOS
+// @pragma('vm:entry-point')
+// Future<bool> onIosBackground(ServiceInstance service) async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   DartPluginRegistrant.ensureInitialized();
+//
+//   return true;
+// }
+
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
@@ -58,7 +79,7 @@ void onStart(ServiceInstance service) async {
   }
 
   // Use a loop to keep the service alive
-  while (true) {
+  for (;;) {
     print('Background Service is running...');
 
     final FlutterLocalNotificationsPlugin _local =
@@ -76,37 +97,39 @@ void onStart(ServiceInstance service) async {
         NotificationDetails(android: androidNotificationDetails);
 
     try {
-      final sseStream = SSEClient.subscribeToSSE(
+      debugPrint("1. Trying to connect to sse");
+      Stream<SSEModel>? SSEConnection = null;
+      SSEConnection = SSEClient.subscribeToSSE(
         url: SSE_BROADCAST,
         header: {"Accept": "text/event-stream"},
         method: SSERequestType.GET,
       );
 
-      sseStream.listen(
-        (event) {
-          debugPrint('Received SSE event: ${event.data}');
-          _local.show(
-            0,
-            '새로운 알림',
-            event.data,
-            notificationDetails,
-            payload: 'test_payload',
-          );
-        },
-        onError: (error) async {
-          debugPrint('SSE Error: $error');
-          await Future.delayed(Duration(seconds: 10));
-          throw Error();
-        },
-        onDone: () {
-          debugPrint('SSE Done');
-        },
-        cancelOnError: false,
-      );
+      if (SSEConnection.runtimeType == Stream<SSEModel>) {
+        debugPrint("2-OK. SSE session initiated.");
+      } else {
+        debugPrint("2-FAILED. Failed to get SSE session.");
+        await Future.delayed(Duration(seconds: 5));
+      }
+
+      await for (final event in SSEConnection) {
+        debugPrint('4. Received SSE event -> ${event.data}');
+        _local.show(
+          0,
+          'Title',
+          event.data,
+          notificationDetails,
+          payload: 'test_payload',
+        );
+      }
+      // ** end untested
     } catch (e) {
-      debugPrint('SSE Error: $e\nTrying to reconnect.');
+      debugPrint('5. Caught SSE Error: $e\nTrying to reconnect.');
+      await Future.delayed(Duration(seconds: 5));
     } finally {
-      await Future.delayed(Duration(seconds: 10));
+      ;
     }
+
   }
 }
+// ===== ENTRY POINT =====

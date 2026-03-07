@@ -9,10 +9,41 @@ import NotifyWindow from './components/NotifyWindow';
 import Advertisement from './components/Advertisement';
 import AdvertisementSkeleton from './components/AdvertisementSkeleton';
 import io from 'socket.io-client';
+import domtoimage from 'dom-to-image';
+
+/**
+ * Capture the <main> element as a PNG base64 string using dom-to-image.
+ */
+function captureMainElement(socket) {
+  try {
+    const mainEl = document.querySelector('main');
+    if (!mainEl) {
+      console.error('[Screenshot] <main> element not found');
+      return;
+    }
+
+    domtoimage.toPng(mainEl, {
+      quality: 1,
+      width: mainEl.scrollWidth,
+      height: mainEl.scrollHeight,
+      style: {}
+    })
+      .then(base64 => {
+        socket.emit('screenshotData', { image: base64 });
+        console.log('[Screenshot] Captured and sent');
+      })
+      .catch(err => {
+        console.error('[Screenshot] Capture error:', err);
+      });
+  } catch (err) {
+    console.error('[Screenshot] Capture error:', err);
+  }
+}
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
   const [clock, setClock] = useState('00:00:00');
+  const [formattedDate, setFormattedDate] = useState('');
   let [notifyLeftTime, setNotifyLeftTime] = useState(0);
   let [socketStatus, setSocketStatus] = useState(false);
   let socket = null;
@@ -37,10 +68,28 @@ export default function Home() {
       }
     });
 
+    let hasConnected = false;
+
     socket.on('connect', () => {
       console.log('successfully connected to socket.io server.');
+      // always hide notification on connect (clears disconnect error popup)
+      setNotifyLeftTime(0);
+      if (hasConnected) {
+        // reconnected after a disconnection — reload the page
+        console.log('Reconnected to server. Reloading page...');
+        location.reload();
+        return;
+      }
+      hasConnected = true;
       socket.emit('getMemberStat');
       setSocketStatus(true);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Socket.IO disconnected:', reason);
+      setSocketStatus(false);
+      setNotifyStatus({ custom: { title: '연결이 끊어졌어요', message: '서버에 접속할 수 없어 서비스가 중단되었어요.\n연결이 재개되는 대로 자동으로 서비스를 재시작할게요.' } });
+      setNotifyLeftTime(Date.now() + 60 * 60 * 1000); // keep showing for a long time until reconnect
     });
 
     socket.on('success', data => {
@@ -66,32 +115,49 @@ export default function Home() {
       location.reload();
     });
 
+    // screenshot capture handler (manual trigger from admin)
+    socket.on('screenshot', () => {
+      console.log('[Screenshot] Capture requested');
+      captureMainElement(socket);
+    });
+
+    // auto-capture: send screenshot periodically so admin preview stays up-to-date
+    const autoCaptureInterval = setInterval(() => {
+      if (socket.connected) {
+        captureMainElement(socket);
+      }
+    }, 500);
+
     return () => {
+      clearInterval(autoCaptureInterval);
       if (socket) socket.disconnect();
     }
   }, []);
   /* ========== end socket.io setup ========== */
 
   // make time goes..
-  setInterval(() => {
-    const date = new Date();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+  useEffect(() => {
+    const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
 
-    setClock(`${hours}:${minutes}:${seconds}`);
-  }, 200);
+    const updateClock = () => {
+      const date = new Date();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      setClock(`${hours}:${minutes}:${seconds}`);
+      setFormattedDate(`${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. (${weekDay[date.getDay()]})`);
+    };
 
-  // retrieve current date.
-  const today = new Date();
-  const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
-  const formattedDate = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}. (${weekDay[today.getDay()]})`;
+    updateClock();
+    const intervalId = setInterval(updateClock, 200);
+    return () => clearInterval(intervalId);
+  }, []);
 
   return (
     <>
       {(() => {
         // notification window section.
-        if (new Date().getTime() <= notifyLeftTime)
+        if (notifyLeftTime > 0 && Date.now() <= notifyLeftTime)
           return (
             <NotifyWindow
               type={notifyStatus.status}
@@ -106,7 +172,7 @@ export default function Home() {
         <section>
           {/* the section that shows logo, datetime and advertisement. */}
           <section className='flex justify-between'>
-            <Image src='/logo.png' width={180} height={0} />
+            <Image src='/logo.png' alt="Logo" width={180} height={0} />
             <div className='flex flex-col items-end'>
               <p className={'text-xl font-semibold tabular-nums'}>
                 {(() => `${clock}`)()}
@@ -130,7 +196,7 @@ export default function Home() {
               return memberStatus.map((user, index) => {
                 if (user.isSkeleton) return (
                   <ProfileSkeleton
-                    key={`${Math.random()}`}
+                    key={`skeleton-${index}`}
                   />
                 )
 
@@ -167,7 +233,7 @@ export default function Home() {
               {
                 socketStatus ?
                   '이곳에 ID 카드를 대주세요' :
-                  '시작하는 동안 잠시만 기다려 주세요'
+                  '서비스를 시작하고 있어요'
               }
             </p>
           </div>

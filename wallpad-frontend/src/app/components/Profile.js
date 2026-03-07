@@ -1,30 +1,34 @@
 /**
  * @brief Member profile component.
  * @author Jay Kang, tlsdnwls
- * @date Nov 6, 2024
- * @version 0.2
+ * @date March 8, 2026
+ * @version 0.3
  */
 
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import Image from 'next/image';
 
-const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { // emoji used as fallback of profile image.
+const Profile = ({ name, position, status, emoji, github, isAbsent, uuid }) => { // emoji used as fallback of profile image.
   const disabledColor = '#6B7684';
   const enabledColor = '#3182F6';
+  const [githubFailed, setGithubFailed] = useState(false);
 
   // `isAbsent` decides whether profile image (or emoji) are shown in grayscale or not.
   //const textColor = (isAbsent) ? `text-[${disabledColor}]` : `text-[${enabledColor}]`;
 
   // index matched as the value of the column `position` on db.
-  const positionText = ['부원', '랩장', '수습부원', '교수님']; // member, leader, probationary member, professor
+  const positionText = ['부원', '랩장', '수습부원', '지도교수']; // member, leader, probationary member, professor
 
   // index matched as the value of the column `status` on db.
-  const statusText = ['부재중', '재실', '수업중', '군대']; // absent, present, in class, in military service
+  const statusText = ['부재중', '재실', '수업중', '자리비움', '휴학']; // absent, present, in class, in military service
+
+  // determine if we should try to load GitHub image
+  const useGithub = github && !githubFailed;
 
   return (
     <>
       <div
-        className={`flex flex-col justify-between bg-[#f2f4f6] w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.9rem] pb-[.95rem]`}
+        className={`flex flex-col justify-between ${status == 1 ? 'bg-[#e8f3ff]' : 'bg-[#f2f4f6]'} w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.9rem] pb-[.95rem]`}
       >
 
         <div>
@@ -53,21 +57,29 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, key }) => { 
         >{(() => {
           return (
             <Image
-              src={github ?
+              src={useGithub ?
                 `https://github.com/${github}.png` :
                 `/emoji/${emoji}.png`}
               className="rounded-full profile-image"
+              alt="Profile image"
               /* 
               compensate image scale as larger when display github profile,
               as fluentui emoji has a little padding.
               */
               style={{
-                scale: (github == null) ? '1.1' : '1',
+                scale: (useGithub) ? '1' : '1.1',
                 opacity: (isAbsent) ? '.7' : '1'
               }}
               width={64}
               height={64}
-              key={key}
+              key={uuid}
+              onError={() => {
+                // GitHub profile image failed to load (404), fallback to emoji
+                if (github && !githubFailed) {
+                  console.log(`[Profile] GitHub image failed for ${github}, falling back to emoji`);
+                  setGithubFailed(true);
+                }
+              }}
             />
           );
         })()}

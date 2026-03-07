@@ -15,6 +15,7 @@ const nextConfig = {
 
     return config;
   },
+  turbopack: {},
   images: {
     remotePatterns: [
       {
@@ -24,9 +25,14 @@ const nextConfig = {
       {
         protocol: 'http',
         hostname: 'localhost'
+      },
+      {
+        protocol: 'http',
+        hostname: 'wallpad.oslab'
       }
     ],
     minimumCacheTTL: 10,
+    qualities: [25, 75],
   },
   async rewrites() {
     return [

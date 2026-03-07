@@ -11,5 +11,4 @@ const UserStatus = {
 Object.freeze(WallpadStatus);
 Object.freeze(UserStatus);
 
-module.exports = WallpadStatus;
-module.exports = UserStatus;
+module.exports = { WallpadStatus, UserStatus };

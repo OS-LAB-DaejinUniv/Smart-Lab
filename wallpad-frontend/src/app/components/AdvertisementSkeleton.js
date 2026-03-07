@@ -23,4 +23,4 @@ const AdvertisementSkeleton = () => {
     );
 }
 
-module.exports = AdvertisementSkeleton;
+export default AdvertisementSkeleton;

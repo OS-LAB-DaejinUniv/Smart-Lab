@@ -1,0 +1,71 @@
+{
+  "title": "리눅스 클라우드 컴퓨팅 심화 실습실",
+  "arduino": {
+    "deviceSerial": "95735343633351D030F0",
+    "baudRate": 115200,
+    "path": "/dev/ttyACM0"
+  },
+  "socketioConf": {
+    "port": 5000,
+    "cors": {
+      "origin": "*",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    "cleanupEmptyChildNamespaces": false
+  },
+  "webUICreds": {
+    "username": "admin",
+    "password": "password",
+    "jwtSecret": "change-this-secret-to-yours",
+    "frontendPort": 3000,
+    "permitConcurrentLogin": false,
+    "allowedIPs": [
+      "0.0.0.0"
+    ]
+  },
+  "memberStatusCaption": [
+    "부재중",
+    "재실",
+    "수업",
+    "자리비움",
+    "휴학"
+  ],
+  "memberDisplayOrder": [
+    "F5D86659F2473A2EFF1912F2B5C5654D",
+    "ABCDABCDABCDABCDABCDABCDABCDABCD",
+    "CE1EF2D8E1587D4BAA36E83C15DD86AD",
+    "DC5EE636A2E342672D38C3C14BCB5569",
+    "123443DEAD2118787234432112344321",
+    "B24699AD0A46FED36F83964E552525A9",
+    "054F814EF99B8A56444CACA3CEAA9202",
+    "0220BE1A568C039685617452DABFA36B",
+    "00000000000000000000000000000000"
+  ],
+  "adTransitionRate": 7000,
+  "taskScriptDir": "./extensions/",
+  "nextCacheDir": "../wallpad-frontend/.next/cache",
+  "adImageDir": "./assets/ad",
+  "dbPath": "wallpad.db",
+  "dbConf": {
+    "fileMustExist": true
+  },
+  "emojiDir": "../wallpad-frontend/public/emoji",
+  "taskScriptTimeout": 3000,
+  "rebootCommand": "sudo reboot",
+  "poweroffCommand": "sudo poweroff",
+  "pm2RestartCommand": "pm2 restart wallpad-backend",
+  "tempCommand": "cat /sys/class/thermal/thermal_zone0/temp",
+  "updateUserStatus": "http://api.oslab:8080/user/updateStatus",
+  "apiToken": {
+    "enabled": false,
+    "tokens": []
+  },
+  "credentials": {
+    "username": null,
+    "password": null
+  },
+  "arduinoDeviceSerial": "95735343633351D030F0"
+}

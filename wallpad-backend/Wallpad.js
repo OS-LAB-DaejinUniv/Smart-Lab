@@ -7,8 +7,7 @@
  */
 
 const config = require('./config');
-const WallpadStatus = require('./WallpadStatus');
-const UserStatus = require('./WallpadStatus');
+const { WallpadStatus, UserStatus } = require('./WallpadStatus');
 const regexps = require('./regexps');
 const SCData = require('./SCData');
 const SCHisory = require('./SCHistory');
@@ -35,7 +34,21 @@ class Wallpad {
         this.buffer = '';
         this.status = WallpadStatus.IDLE;
         this.pending = null; // Stores authenticated user data temporarily until processing completes
-        this.extension = this.loadExtensions();
+        this.extension = ((dir = config.taskScriptDir) => {
+            return fs.readdirSync(dir)
+                .filter(file => file.match(/\.js$/))
+                .reduce((list, moduleName) => {
+                    try {
+                        const module = require(path.resolve(path.join(dir, moduleName)));
+                        if (module.enabled)
+                            list[moduleName.replace('.js', '')] = module;
+
+                    } catch (err) {
+                        console.error(`[Wallpad.constructor] Failed to load extension ${moduleName}:`, err);
+                    }
+                    return list;
+                }, {});
+        })();
 
         this.DEBUG = true;
     }
@@ -290,6 +303,27 @@ class Wallpad {
             }
         });
 
+        // Card test mode: intercept authedUser to extract UUID without processing attendance
+        if (this.cardTestMode && matchedType === 'authedUser') {
+            const rawData = matchedValue.toString().substring('AUTHED_'.length);
+            // Extract UUID from raw data (first 32 hex characters)
+            const uuid = rawData.substring(0, 32);
+            
+            if (this.DEBUG)
+                console.log(`[Wallpad.parseResponse] Card test mode: UUID extracted: ${uuid}`);
+            
+            // Resolve the callback with the UUID
+            if (this.cardTestCallback) {
+                this.cardTestCallback(uuid);
+                this.cardTestCallback = null;
+            }
+            
+            // Reset test mode and status
+            this.cardTestMode = false;
+            this.status = WallpadStatus.IDLE;
+            return;
+        }
+
         switch (matchedType) {
             case 'authedUser':
                 this.#authedHandler(
@@ -311,6 +345,52 @@ class Wallpad {
                     this.#errorHandler(matchedType);
                 }
         }
+    }
+
+    /**
+     * Enable card test mode and return a promise that resolves with UUID when card is read
+     * @returns {Promise<string>} Promise that resolves with UUID
+     */
+    enableCardTestMode() {
+        return new Promise((resolve, reject) => {
+            if (this.cardTestMode) {
+                reject(new Error('Card test mode is already active'));
+                return;
+            }
+            
+            if (this.status !== WallpadStatus.IDLE) {
+                reject(new Error('Wallpad is busy'));
+                return;
+            }
+
+            this.cardTestMode = true;
+            this.cardTestCallback = resolve;
+            
+            if (this.DEBUG)
+                console.log('[Wallpad.enableCardTestMode] Card test mode enabled, waiting for card...');
+        });
+    }
+
+    /**
+     * Disable card test mode (called when client disconnects)
+     */
+    disableCardTestMode() {
+        if (this.cardTestMode) {
+            if (this.DEBUG)
+                console.log('[Wallpad.disableCardTestMode] Card test mode disabled');
+            
+            this.cardTestMode = false;
+            this.cardTestCallback = null;
+            this.status = WallpadStatus.IDLE;
+        }
+    }
+
+    /**
+     * Check if card test mode is active
+     * @returns {boolean}
+     */
+    isCardTestModeActive() {
+        return this.cardTestMode;
     }
 };
 

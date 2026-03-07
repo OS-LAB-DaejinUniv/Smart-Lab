@@ -9,7 +9,7 @@ const pretendard = localFont({
 });
 
 export const metadata = {
-  title: "OS Lab. Smart Wallpad",
+  title: "OS Lab Smart Wallpad",
   icons: {
     icon: "/favicon.png"
   }
@@ -17,11 +17,11 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ko" className={pretendard.variable}>
+    <html lang="ko" className={pretendard.variable} suppressHydrationWarning>
       <head>
         <meta name="viewport" content="initial-scale=1.0,user-scalable=no,maximum-scale=1,width=device-width" />
       </head>
-      <body className={`${pretendard.className} bg-black`}>{children}</body>
+      <body className="font-[family-name:var(--font-pretendard)] bg-black" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

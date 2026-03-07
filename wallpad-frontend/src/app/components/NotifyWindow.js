@@ -1,8 +1,8 @@
 /**
  * @brief Notification window overlay component.
  * @author Jay Kang
- * @date July 23, 2024
- * @version 0.1
+ * @date March 8, 2026
+ * @version 0.2
  */
 
 import { memo } from 'react';
@@ -41,7 +41,7 @@ const NotifyWindow = ({ type, ...props }) => {
     return (
       <>
         <div
-          className='w-full h-full top-0 fixed z-20 bg-slate-950 opacity-30 notify-background'>
+          className='w-full h-full top-0 fixed z-20 bg-slate-950/50'>
         </div>
         <div
           className="bg-white w-[486px] !top-[27px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
@@ -58,7 +58,7 @@ const NotifyWindow = ({ type, ...props }) => {
   return (
     <>
       <div
-        className='w-full h-full top-0 fixed z-20 bg-slate-950 opacity-30 notify-background'>
+        className='w-full h-full top-0 fixed z-20 bg-slate-950/50'>
       </div>
       <div
         className="bg-white w-[486px] !top-[27px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">

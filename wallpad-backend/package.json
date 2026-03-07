@@ -1,10 +1,14 @@
 {
   "name": "oslab-wallpad-be",
   "version": "1.0.0",
-  "description": "oslab wallpad backend",
+  "description": "the backend of oslab wallpad",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "start": "pm2 start app.js --name wallpad-backend",
+    "restart": "pm2 restart wallpad-backend",
+    "stop": "pm2 stop wallpad-backend",
+    "log": "pm2 logs wallpad-backend"
   },
   "author": "Jay Kang",
   "license": "ISC",
@@ -15,6 +19,7 @@
     "multer": "^1.4.5-lts.1",
     "node-aplay": "^1.0.3",
     "nodemon": "^3.1.4",
+    "pm2": "^6.0.14",
     "serialport": "^12.0.0",
     "socket.io": "^4.7.5",
     "uuid": "^10.0.0"

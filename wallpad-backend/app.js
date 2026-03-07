@@ -1,645 +1,335 @@
 const config = require('./config');
 const Wallpad = require('./Wallpad');
-const SCEvent = require('./SCEvent');
 const express = require('express');
-const multer = require('multer');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
 const jwt = require('jsonwebtoken');
-const { v4 } = require('uuid');
 const { SerialPort } = require('serialport');
 const { autoDetect } = require('@serialport/bindings-cpp');
 const Database = require('better-sqlite3');
-const { execSync } = require('child_process');
 const DB = require('./DB');
-const dbconn = new Database(config.dbPath, config.dbConf);
-const checkImageType = require('./utils/checkImageType');
-const readJSONFile = require('./utils/readJSONFile');
-const writeObjectAsJSON = require('./utils/writeObjectAsJSON');
-const cacheFlush = require('./utils/cacheFlush');
+const runtimeConfig = require('./runtimeConfig');
 const { Server } = require('socket.io');
+const fs = require('fs');
+const path = require('path');
+
+// middleware
+const cors = require('./middleware/cors');
+const { extractToken } = require('./middleware/auth');
+const errorHandler = require('./middleware/errorHandler');
+
+// route modules
+const adRoutes = require('./routes/ad');
+const systemRoutes = require('./routes/system');
+const authRoutes = require('./routes/auth');
+const memberRoutes = require('./routes/member');
+const extensionRoutes = require('./routes/extension');
+
+const dbconn = new Database(config.dbPath, config.dbConf);
 const app = express();
 const server = http.createServer(app);
 
-// setup multer
-const uploadAd = multer({
-	storage: multer.diskStorage({
-		destination(req, file, done) {
-			done(null, config.adImageDir);
-		},
-		filename(req, file, done) {
-			done(null, v4() + '.png');
-		}
-	}),
-	limits: { fileSize: 2 * (1024 ** 2) },
-	fileFilter: (req, file, done) => checkImageType(file, done)
-});
-
 // express middlewares
 app.use(express.json());
-app.use((req, res, next) => {
-	const originHeader = req.header.origin;
-
-	if (originHeader) {
-		const changedOrigin = new URL(originHeader);
-		changedOrigin.port = config.webUICreds.frontendPort;
-		res.setHeader('Access-Control-Allow-Origin', changedOrigin.origin);
-		// console.log('post요청인가?', origin.origin);
-
-	} else {
-		const origin = new URL('http://' + req.headers.host);
-		origin.port = config.webUICreds.frontendPort;
-		res.setHeader('Access-Control-Allow-Origin', origin.origin);
-		// console.log('get요청인가?', origin.origin)
-	}
-
-	res.setHeader('Access-Control-Allow-Methods', 'POST, GET');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-	next();
-});
-app.use((req, res, next) => {
-	try {
-		const token = (() => {
-			if (req.method == 'GET') {
-				return req.headers.authorization;
-
-			} else if (req.method == 'POST') {
-				return req.body.token;
-			};
-		})();
-
-		jwt.verify(token, config.webUICreds.jwtSecret, err => {
-			req.authed = (!err) ? true : false;
-			// console.log('[tokenValidator]', req.authed);
-		});
-
-	} catch (err) {
-		console.error('[tokenValidator] Error:', err);
-
-		// res.status(500);
-		// res.json({ status: false, reason: 'tokenValidatorError' });
-
-	} finally {
-		next();
-	}
-});
+app.use(cors);
+app.use(extractToken);
 
 // init wallpad
 (async () => {
 	// find device which matched with configured device number.
+	const cfgSerial = runtimeConfig.get('arduinoDeviceSerial') || config.arduino.deviceSerial;
+	config.arduino.deviceSerial = cfgSerial;
 	const deviceList = await autoDetect().list();
 	const isDeviceFound = deviceList.find(device => {
 		if (device.serialNumber == config.arduino.deviceSerial) {
-			console.log(`Assigned path ${device.path} for Arduino board (Serial: ${config.arduino.deviceSerial}).`);
-
-			// when if it founds..
+			console.log(`Found id card reader with serial ${config.arduino.deviceSerial}: ${device.path}`);
 			config.arduino.path = device.path;
-
 			return true;
 		}
 	});
 
 	if (!isDeviceFound) throw new Error('deviceNotFound');
 
-	// create depending instance used by Wallpad class.
+	// create depending instances
 	const db = new DB(dbconn);
 	const arduino = new SerialPort(config.arduino);
 	const io = new Server(server, config.socketioConf);
 
-	// create Wallpad instance.
+	// create Wallpad instance
 	const wallpad = new Wallpad(db, arduino, io);
 
-	// passes all serialport event to wallpad.
+	// passes all serialport events to wallpad
 	arduino.on('data', data => wallpad.serialEventHandler(data));
 
 	server.listen(config.socketioConf.port, "0.0.0.0", () => {
 		console.log(`Socket.IO server started on port ${config.socketioConf.port}.`);
 	});
 
-	// ** belows are websocket api request handlers. **
-	io.on('connection', (wallpad) => {
+	// ** WebSocket event handlers **
+	io.on('connection', (socket) => {
 		console.log('Wallpad frontend connected.');
 
-		// responses list of all members with its current status. 
-		wallpad.on('getMemberStat', () => {
+		socket.on('getMemberStat', () => {
 			console.log('Received WebSocket request: getMemberStat');
-
 			const list = db.selectMembers();
+			const displayOrder = runtimeConfig.get('memberDisplayOrder') || [];
 
-			wallpad.emit('getMemberStatResp', list); // Send the array directly
+			// sort by display order
+			const ordered = [];
+			displayOrder.forEach(uuid => {
+				const member = list.find(m => m.uuid === uuid);
+				if (member) ordered.push(member);
+			});
+			list.forEach(m => {
+				if (!displayOrder.includes(m.uuid)) ordered.push(m);
+			});
+
+			socket.emit('getMemberStatResp', ordered);
 		});
 
-		// print reason as client disconnectd.
-		wallpad.on('disconnect', (reason) => {
+		socket.on('getAdTransitionRate', () => {
+			const rate = runtimeConfig.get('adTransitionRate') || 8000;
+			socket.emit('adTransitionRateResp', { rate });
+		});
+
+		// receive screenshot data from frontend
+		socket.on('screenshotData', (data) => {
+			try {
+				if (data && data.image) {
+					const base64Data = data.image.replace(/^data:image\/png;base64,/, '');
+					const screenshotPath = path.join(__dirname, 'screenshot.png');
+					fs.writeFileSync(screenshotPath, base64Data, 'base64');
+					console.log('[Screenshot] Saved screenshot.png');
+				}
+			} catch (err) {
+				console.error('[Screenshot] Failed to save:', err.message);
+			}
+		});
+
+		socket.on('disconnect', (reason) => {
 			console.log('Wallpad frontend disconnected. Reason: ' + reason);
 		});
 	});
 
-	/* HTTP APIs related to wallpad advertisement. */
-	// 1. get ad image list.
-	app.get('/wallpad/ad/list', (req, res) => {
+	// ** Mount route modules **
+	app.use('/wallpad/ad', adRoutes(io));
+	app.use('/wallpad', systemRoutes(io));
+	app.use('/wallpad/management', authRoutes);
+	app.use('/wallpad/management/member', memberRoutes(db, io));
+	app.use('/wallpad/management/extension', extensionRoutes());
+
+	// SSE endpoint: watch screenshot.png for changes
+	app.get('/wallpad/screenshot/stream', (req, res) => {
+		res.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			'Connection': 'keep-alive',
+			'Access-Control-Allow-Origin': '*'
+		});
+
+		const screenshotPath = path.join(__dirname, 'screenshot.png');
+		let lastMtime = null;
+
+		// check initial state
 		try {
-			const adConfig = (() => {
-				const filePath = path.resolve(config.adImageDir, 'config.json');
-				const file = fs.readFileSync(filePath).toString();
-
-				return JSON.parse(file);
-			})();
-
-			res.json(adConfig);
-
-		} catch (err) {
-			console.error(`[getAdConfig] Error: ${err}`);
-
-			res.json(err);
-		}
-	});
-
-	// 2. get specific ad image.
-	app.get('/wallpad/ad/:imageId(*)', (req, res) => {
-		try {
-			const imageId = req.params.imageId;
-			// console.log('[getImageById]', imageId);
-
-			res.setHeader('Content-type', 'image/png');
-
-			res.sendFile(
-				path.resolve(config.adImageDir, imageId) + '.png'
-			);
-
-		} catch (err) {
-			console.error(`[getImageById] ${err}`);
-
-			res.status(500);
-			res.json(err);
-		}
-	});
-
-	// 3. upload new ad image.
-	app.post('/wallpad/ad/upload', uploadAd.single('inputImage'), (req, res) => {
-		try {
-			// if (!req.authed) throw new Error('InvalidToken');
-
-			// if multer retruned an error.
-			if (!req.file) {
-				throw new Error('MulterFailed');
+			if (fs.existsSync(screenshotPath)) {
+				lastMtime = fs.statSync(screenshotPath).mtimeMs;
+				const imgData = fs.readFileSync(screenshotPath).toString('base64');
+				res.write(`event: screenshot\ndata: ${JSON.stringify({ image: imgData, mtime: lastMtime })}\n\n`);
 			}
+		} catch (e) { /* ignore */ }
 
-			// verify and update ad/config.json
-			const adConfig = readJSONFile(config.adImageDir, 'config.json');
-			adConfig.list.push(req.file.filename.split('.')[0]);
-
-			// update ad/config.json
-			writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
-
-			console.log('[uploadNewAd] Successfully uploaded image:',
-				`${req.file.originalname} -> ${req.file.filename}`);
-
-			res.json({ status: true });
-
-		} catch (err) {
-			console.error(`[uploadNewAd] ${err}`);
-
-			res.json({ status: false });
-		}
-	});
-
-	// 4. update ad/config.json
-	app.post('/wallpad/ad/reorder', (req, res) => {
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			// load current and reordered list.
-			const current = readJSONFile(config.adImageDir, 'config.json').list;
-			const reordered = req.body.adList;
-
-			// verify equality of length of the current and reordered list.
-			if ((new Set(current).size) != (new Set(reordered).size)) {
-				throw new Error('InconsistantAdList');
-			}
-
-			// verify reordered list includes all elements of the current list.
-			current.forEach(imageId => {
-				if (reordered.indexOf(imageId) == -1) {
-					throw new Error('InconsistantAdList');
+		const interval = setInterval(() => {
+			try {
+				if (!fs.existsSync(screenshotPath)) return;
+				const stat = fs.statSync(screenshotPath);
+				if (lastMtime !== stat.mtimeMs) {
+					lastMtime = stat.mtimeMs;
+					const imgData = fs.readFileSync(screenshotPath).toString('base64');
+					res.write(`event: screenshot\ndata: ${JSON.stringify({ image: imgData, mtime: lastMtime })}\n\n`);
 				}
-			});
+			} catch (e) { /* ignore read errors */ }
+		}, 500);
 
-			// update ad/config.json
-			writeObjectAsJSON(config.adImageDir, 'config.json', { list: reordered });
-			console.log('[reorderAdList] successfully updated ad/config.json');
+		req.on('close', () => {
+			clearInterval(interval);
+		});
+	});
 
-			// flush cache and refresh screen if field exists.
-			if (req.body.rmcache) {
-				io.emit('reqFrontendRefresh');
-				cacheFlush(config.nextCacheDir);
-			}
-
+	// trigger screenshot capture
+	app.post('/wallpad/screenshot/capture', (req, res) => {
+		try {
+			io.emit('screenshot');
 			res.json({ status: true });
-
 		} catch (err) {
-			console.error(`[reorderAdList] Error: ${err}`);
-
-			res.status(500);
-			res.json({ status: false });
+			res.status(500).json({ status: false, reason: err.message });
 		}
 	});
 
-	// 5. delete image
-	app.post('/wallpad/ad/remove/:imageId(*)', (req, res) => {
-		try {
-			// if (!req.authed) throw new Error('InvalidToken');
-
-			const select = req.params.imageId;
-
-			// load current and reordered list.
-			const current = readJSONFile(config.adImageDir, 'config.json').list;
-			const removedList = current.reduce((acc, item) => {
-				if (item != select) acc.push(item);
-				return acc;
-			}, []);
-
-			// delete image file on directory.
-			const filePath = path.resolve(config.adImageDir, select + '.png');
-			fs.rmSync(filePath);
-
-			// update ad/config.json
-			writeObjectAsJSON(config.adImageDir, 'config.json', { list: removedList });
-			console.log('[deleteAdImage] Successfully deleted image:', select);
-
-			// flush cache and refresh screen if field exists.
-			if (req.body.rmcache) {
-				io.emit('reqFrontendRefresh');
-				cacheFlush(config.nextCacheDir);
-			}
-
-			res.json({ status: true });
-
-		} catch (err) {
-			console.error(`[deleteAdImage] Error: ${err}`);
-
-			res.status(500);
-			res.json({ status: false });
+	// Card test mode API: waits for card and returns UUID
+	// Uses Server-Sent Events (SSE) to keep connection alive and handle disconnect
+	app.get('/wallpad/card/test', (req, res) => {
+		// Check auth token from query param or header
+		const token = req.query.token || req.headers.authorization;
+		if (!token) {
+			return res.status(401).json({ status: false, reason: 'Unauthorized' });
 		}
-	});
-
-	/* HTTP APIs used on wallpad management console. */
-
-	// refresh wallpad
-	app.post('/wallpad/refresh', (req, res) => {
-		console.log('Received HTTP request:', req.path);
 
 		try {
-			if (!req.authed) throw new Error('InvalidToken');
+			const jwt = require('jsonwebtoken');
+			const config = require('./config');
+			jwt.verify(token, config.webUICreds.jwtSecret);
+		} catch (err) {
+			return res.status(401).json({ status: false, reason: 'Invalid token' });
+		}
 
-			const { rmcache } = req.body;
+		// Check if card test mode is already active
+		if (wallpad.isCardTestModeActive()) {
+			return res.status(409).json({ status: false, reason: 'Card test already in progress' });
+		}
 
-			if (rmcache) {
-				cacheFlush(config.nextCacheDir);
-			}
+		// Set SSE headers for keep-alive
+		res.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			'Connection': 'keep-alive',
+			'Access-Control-Allow-Origin': '*'
+		});
 
-			io.emit('reqFrontendRefresh');
-			res.json({
-				status: true
+		// Send initial event to confirm connection
+		res.write(`event: connected\ndata: ${JSON.stringify({ status: true, message: 'Waiting for card...' })}\n\n`);
+
+		// Enable card test mode and wait for card
+		wallpad.enableCardTestMode()
+			.then(uuid => {
+				// Card read successfully
+				res.write(`event: cardRead\ndata: ${JSON.stringify({ status: true, uuid })}\n\n`);
+				res.end();
+			})
+			.catch(err => {
+				res.write(`event: error\ndata: ${JSON.stringify({ status: false, reason: err.message })}\n\n`);
+				res.end();
 			});
 
-		} catch (err) {
-			console.error('Failed to flush next cache: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
+		// Handle client disconnect
+		req.on('close', () => {
+			console.log('[Card Test] Client disconnected, disabling test mode');
+			wallpad.disableCardTestMode();
+		});
 	});
 
-	// reboot wallpad
-	app.post('/wallpad/reboot', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			execSync(config.rebootCommand);
-			res.json({
-				status: true
-			});
-
-		} catch (err) {
-			console.error('Failed to execute reboot command: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// poweroff wallpad
-	app.post('/wallpad/poweroff', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			execSync(config.poweroffCommand);
-			res.json({
-				status: true
-			});
-
-		} catch (err) {
-			console.error('Failed to execute poweroff command: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// returns cpu temperature
-	app.get('/wallpad/cputemp', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			const temp = (() => {
-				const cmdResp = execSync(config.tempCommand);
-				return parseFloat((cmdResp / 1000).toFixed(1));
-			})();
-			res.json({
-				status: true,
-				temp
-			});
-
-		} catch (err) {
-			console.error('Failed to read CPU temperature: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// returns system uptime
-	app.get('/wallpad/uptime', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			const uptime = parseInt(
-				require('os').uptime()
-			);
-			res.json({
-				status: true,
-				uptime
-			});
-
-		} catch (err) {
-			console.error('Failed to retrieve system uptime: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// returns card scan history
+	// card history endpoint (must match frontend URL: /wallpad/management/card/history)
 	app.post('/wallpad/management/card/history', (req, res) => {
-		const page = (() => {
-			if (typeof parseInt(req.query.page) != 'number') {
-				return new Error('InvalidPage');
-			}
-			return req.query.page;
-		})();
-		// const amount = (() => {
-		// 	if (!req.query.amount || !(10 <= req.query.amount <= 30)) {
-		// 		return new Error('InvalidAmount');
-		// 	}
-		// 	return req.query.amount;
-		// })();
-		const amount = 10;
-
-		console.log('Received HTTP request:', req.path);
-		console.log('Page number:', page, 'Amount:', amount);
-
 		try {
-			if (!req.authed) throw new Error('InvalidToken');
+			if (!req.authed) return res.status(401).json({ status: false });
 
-			const rows = db.getHistory(req.body.filter);
+			const page = Math.max(1, parseInt(req.body.page) || 1);
+			const limit = [10, 20].includes(parseInt(req.body.limit)) ? parseInt(req.body.limit) : 10;
+			const offset = (page - 1) * limit;
+
+			const { rows, total } = db.getHistory(req.body.filter, limit, offset);
+			const totalPages = Math.ceil(total / limit);
 
 			res.json({
 				status: true,
-				rows
+				rows,
+				pagination: { page, limit, total, totalPages }
 			});
-
 		} catch (err) {
-			console.error('Failed to retrieve card scan history: ', err.toString());
-
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			});
+			console.error('Failed to retrieve card scan history:', err.toString());
+			res.status(500).json({ status: false, reason: err.message });
 		}
 	});
 
-	// returns member list
-	app.get('/wallpad/management/member/list', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			const rows = db.selectMembers();
-
-			res.json({
-				status: true,
-				rows
-			});
-
-		} catch (err) {
-			console.error('Failed to retrieve member list: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// returns member status code caption
-	app.get('/wallpad/management/member/statuscaption', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			const caption = config.memberStatusCaption;
-
-			res.json({
-				status: true,
-				caption
-			});
-
-		} catch (err) {
-			console.error('Failed to read config.memberStatusCaption: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// returns specific member info
-	app.get('/wallpad/management/member/:UUID(*)', (req, res) => {
-		console.log('Received HTTP request:', req.path);
-
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			const query = req.params.UUID;
-			const row = db.selectMemberByUUID(query);
-
-			res.json({
-				status: true,
-				row
-			});
-
-		} catch (err) {
-			console.error('Failed to retrieve member information: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
-		}
-	});
-
-	// wallpad management console login
-	app.post('/wallpad/management/signin', (req, res) => {
-		try {
-			const [corrUsername, corrPassword] = [config.webUICreds.username, config.webUICreds.password];
-			const { username, password } = req.body;
-			const accessip = req.ip;
-
-			if ((username != corrUsername) || (password != corrPassword)) {
-				res.status(401);
-				res.json({ status: false });
-				return;
-			}
-
-			const token = jwt.sign(
-				{ username, accessip },
-				config.webUICreds.jwtSecret,
-				{ expiresIn: '30m' });
-
-			res.json({ status: true, token });
-
-		} catch (err) {
-			console.log('[mgmtSignin] Sign-in failed:', err);
-
-			res.status(500);
-			res.json({ status: false });
-		}
-	});
-
-	// returns all of member status
+	// public member status endpoint (for main wallpad display)
 	app.get('/wallpad/member/statusall', (req, res) => {
 		try {
-			const statusAll = db.selectMembers();
+			const rows = db.selectMembers();
+			const displayOrder = runtimeConfig.get('memberDisplayOrder') || [];
 
-			res.json(statusAll);
+			const ordered = [];
+			displayOrder.forEach(uuid => {
+				const member = rows.find(m => m.uuid === uuid);
+				if (member) ordered.push(member);
+			});
+			rows.forEach(m => {
+				if (!displayOrder.includes(m.uuid)) ordered.push(m);
+			});
 
+			res.json(ordered);
 		} catch (err) {
-			console.log('[statusall] ', err);
-			res.status(500);
-			res.json({ status: false });
+			console.error('[statusall]', err);
+			res.status(500).json({ status: false });
 		}
 	});
 
-	// show custom message box on wallpad screen
-	app.post('/wallpad/message', (req, res) => {
+	// public config endpoint (title, adTransitionRate for frontend)
+	app.get('/wallpad/config/public', (req, res) => {
 		try {
-			const { title, message } = req.body;
-			const duration = parseInt(req.body.duration);
-
-			if (!title || !message || !duration)
-				throw new Error('Invalid Parameter(s)');
-
-			if ((duration < 1) || (duration >= 10 * 1000))
-				throw new Error('Duration range is 1-9999');
-
-			const content = Object.assign(
-				new SCEvent({ status: 'success', duration }),
-				{
-					custom: {
-						title, message, duration
-					}
-				}
-			)
-
-			io.emit('success', content);
-
-			console.log('[message] Showing custom messagebox on wallpad:\n' +
-				`${title} / ${message} / ${duration}`);
-
-			res.json({ status: true });
-
-		} catch (err) {
-			console.log('[message] ', err);
-			res.status(500);
-			res.json({ status: false });
-		}
-	});
-
-	// Reload extensions
-	app.post('/wallpad/extension/reloadall', (req, res) => {
-		try {
-			if (!req.authed) throw new Error('InvalidToken');
-
-			wallpad.loadExtensions();
-
+			const cfg = runtimeConfig.getAll();
 			res.json({
 				status: true,
+				title: cfg.title,
+				adTransitionRate: cfg.adTransitionRate,
+				memberStatusCaption: cfg.memberStatusCaption,
+				arduinoDeviceSerial: cfg.arduinoDeviceSerial || config.arduino.deviceSerial
 			});
-
 		} catch (err) {
-			console.error('Failed to reload extensions: ', err.toString());
-			res.status(500);
-			res.json({
-				status: false,
-				reason: err
-			})
+			console.error('[config/public]', err);
+			res.status(500).json({ status: false });
 		}
 	});
 
-	// returns validity of token.
-	app.get('/wallpad/management/token/verify', (req, res) => {
+	// save config endpoint (requires auth)
+	app.post('/wallpad/management/config', (req, res) => {
 		try {
-			const userToken = req.query.token || null;
+			if (!req.authed) return res.status(401).json({ status: false });
 
-			jwt.verify(userToken, config.webUICreds.jwtSecret, (err) => {
-				if (!err) {
-					res.json({ status: true });
+			const { title, adTransitionRate, memberStatusCaption } = req.body;
 
-				} else {
-					res.status(401);
-					res.json({ status: false });
+			if (title !== undefined) {
+				runtimeConfig.set('title', title);
+			}
+			if (adTransitionRate !== undefined) {
+				const rate = parseInt(adTransitionRate);
+				if (rate >= 1000 && rate <= 60000) {
+					runtimeConfig.set('adTransitionRate', rate);
+					// broadcast to connected frontends
+					io.emit('adTransitionRateResp', { rate });
 				}
-			});
+			}
+			if (memberStatusCaption !== undefined && Array.isArray(memberStatusCaption)) {
+				runtimeConfig.set('memberStatusCaption', memberStatusCaption);
+			}
 
+			const { arduinoDeviceSerial } = req.body;
+			if (arduinoDeviceSerial !== undefined && typeof arduinoDeviceSerial === 'string' && arduinoDeviceSerial.trim()) {
+				runtimeConfig.set('arduinoDeviceSerial', arduinoDeviceSerial.trim());
+				config.arduino.deviceSerial = arduinoDeviceSerial.trim();
+			}
 
+			res.json({ status: true });
 		} catch (err) {
-			console.log('[verifyManagementToken] Error:', err);
-
-			res.status(500);
-			res.json({ status: false });
+			console.error('[config/save]', err);
+			res.status(500).json({ status: false });
 		}
 	});
 
-	// belows are callbacks for cleanup.
-	process.on('exit', () => db.close());
+	// history latest (test endpoint)
+	app.get('/history/latest', (req, res) => {
+		try {
+			res.json({
+				status: true,
+				message: { history: db.getHistoryLatest() }
+			});
+		} catch (err) {
+			console.error('/history/latest', err);
+			res.status(500).json({ status: false });
+		}
+	});
+
+	// error handler (must be last)
+	app.use(errorHandler);
+
+	// cleanup
+	process.on('exit', () => dbconn.close());
 })();

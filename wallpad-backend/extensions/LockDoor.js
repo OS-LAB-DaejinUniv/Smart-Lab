@@ -5,7 +5,7 @@ const Extension = require("../Extension");
 module.exports = new Extension({
     enabled: true,
     activatedStatus: 0,
-    activatedIndex: 0
+    activatedIndex: '*'
 },
     (userInfo, changedTo, memberList) => {
         const url = 'http://api.oslab:8080/doorlock/lock';

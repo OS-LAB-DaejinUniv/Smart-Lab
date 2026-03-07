@@ -1,4 +1,6 @@
 /node_modules
 package-lock.json
 wallpad.db
+/assets
+screenshot.png
 .swp

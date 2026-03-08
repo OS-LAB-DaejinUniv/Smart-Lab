@@ -34,21 +34,7 @@ class Wallpad {
         this.buffer = '';
         this.status = WallpadStatus.IDLE;
         this.pending = null; // Stores authenticated user data temporarily until processing completes
-        this.extension = ((dir = config.taskScriptDir) => {
-            return fs.readdirSync(dir)
-                .filter(file => file.match(/\.js$/))
-                .reduce((list, moduleName) => {
-                    try {
-                        const module = require(path.resolve(path.join(dir, moduleName)));
-                        if (module.enabled)
-                            list[moduleName.replace('.js', '')] = module;
-
-                    } catch (err) {
-                        console.error(`[Wallpad.constructor] Failed to load extension ${moduleName}:`, err);
-                    }
-                    return list;
-                }, {});
-        })();
+        this.extension = this.loadExtensions();
 
         this.DEBUG = true;
     }
@@ -180,7 +166,7 @@ class Wallpad {
             });
 
         } catch (err) {
-            console.error('[Wallpad.triggerRunTasks] Error occured while executing', extensionName, '\n', err);
+            console.error('[Wallpad.triggerRunTasks] Error occured while executing extensions.\n', err);
         }
     }
 
@@ -307,7 +293,7 @@ class Wallpad {
         if (this.cardTestMode && matchedType === 'authedUser') {
             const rawData = matchedValue.toString().substring('AUTHED_'.length);
             // Extract UUID from raw data (first 32 hex characters)
-            const uuid = rawData.substring(0, 32);
+            const uuid = rawData.substring(32, 64);
             
             if (this.DEBUG)
                 console.log(`[Wallpad.parseResponse] Card test mode: UUID extracted: ${uuid}`);
@@ -321,6 +307,7 @@ class Wallpad {
             // Reset test mode and status
             this.cardTestMode = false;
             this.status = WallpadStatus.IDLE;
+            this.buffer = '';
             return;
         }
 

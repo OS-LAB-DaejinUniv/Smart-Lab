@@ -13,7 +13,7 @@ const CONFIG_PATH = path.resolve(__dirname, 'config.json');
 const DEFAULTS = {
 	title: '리눅스 클라우드 컴퓨팅 심화 실습실',
 	arduino: {
-		deviceSerial: '95735343633351D030F0',
+		deviceSerial: '95335343136351B002B2',
 		baudRate: 115200
 	},
 	socketioConf: {

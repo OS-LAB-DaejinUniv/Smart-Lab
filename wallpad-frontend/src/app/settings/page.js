@@ -1048,7 +1048,7 @@ function LogsSection() {
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableHead>
-                                    <TableHead className="hidden sm:table-cell w-[140px] font-semibold">카드 UUID</TableHead>
+                                    <TableHead className="hidden sm:table-cell w-[140px] font-semibold">식별번호</TableHead>
                                     <TableHead className="w-[80px] sm:w-[120px] font-semibold">변동내역</TableHead>
                                     <TableHead className="w-auto sm:w-[200px] font-semibold">
                                         <DropdownMenu>
@@ -1317,7 +1317,7 @@ function MemberSection() {
 
         const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
         const cardTestURL = new URL(`/wallpad/card/test?token=${token}`, `http://${location.hostname}:${backendPort}`);
-        
+
         const eventSource = new EventSource(cardTestURL);
         cardTestEventSourceRef.current = eventSource;
 
@@ -1368,13 +1368,6 @@ function MemberSection() {
         setIsOpenCardTestDialog(false);
     }
 
-    // Copy UUID to clipboard
-    function copyUUIDToClipboard() {
-        if (cardTestUUID && navigator.clipboard) {
-            navigator.clipboard.writeText(cardTestUUID);
-        }
-    }
-
     function fetchMembetList() {
         const memberListURL = new URL('/wallpad/management/member/list', `http://${location.hostname}:${backendPort}`);
         const addMemberURL = new URL('/wallpad/management/member', `http://${location.hostname}:${backendPort}`);
@@ -1385,7 +1378,7 @@ function MemberSection() {
             .then(res => res.json())
             .then(body => {
                 if (body.status) {
-                    setMemberList(body.rows);
+                    setMemberList(Array.isArray(body.rows) ? body.rows : []);
                     return;
                 }
                 throw new Error();
@@ -1628,7 +1621,7 @@ function MemberSection() {
                             <col style={{ minWidth: '3.5rem', maxWidth: '10rem' }} />
                             <col style={{ minWidth: '3.5rem', maxWidth: '10rem' }} />
                             <col style={{ width: '100%' }} />
-                            <col style={{ width: '2rem' }} />
+                            <col style={{ minWidth: '8rem' }} />
                             <col style={{ minWidth: '5rem' }} />
                         </colgroup>
                         <thead>
@@ -1637,131 +1630,139 @@ function MemberSection() {
                                 <th className='align-middle text-center text-gray-600'>직책</th>
                                 <th className='align-middle text-center text-gray-600'>이름</th>
                                 <th className='align-middle text-left text-gray-600 pl-3.5'>상태</th>
-                                <th className='align-middle text-gray-600'>관리 메뉴</th>
+                                <th className='align-middle text-gray-600 text-center whitespace-nowrap'>관리 메뉴</th>
                                 <th className='align-middle text-gray-600'>표시 순서</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {memberList.map((member, idx) => {
-                                const bgColor = idx % 2 === 0 ? 'bg-accent' : '';
-                                return (
-                                    <tr key={member.uuid}>
-                                        <td className="h-1 align-middle"> {/** Profile Picture */}
-                                            <div className={`h-full rounded-l-lg flex justify-center items-center text-gray-600 ${bgColor}`}>
-                                                <Image
-                                                    src={(member.github && !githubFailedMembers.has(member.uuid)) ?
-                                                        `https://github.com/${member.github}.png` :
-                                                        `/emoji/${member.emoji}.png`
-                                                    }
-                                                    className="rounded-full hover:grayscale-[50%] hover:scale-95 transition-transform duration-200"
-                                                    width={32}
-                                                    height={32}
-                                                    style={{
-                                                        scale: (member.github == null || githubFailedMembers.has(member.uuid)) ?
-                                                            '1.1' : '1'
-                                                    }}
-                                                    onClick={() => {
-                                                        setCurrentMember(member);
-                                                        setNewNickname(member.github || '');
-                                                        setSelectedEmoji(null);
-                                                        setIsOpenNicknameDialog(true);
-                                                    }}
-                                                    onError={() => {
-                                                        if (member.github && !githubFailedMembers.has(member.uuid)) {
-                                                            setGithubFailedMembers(prev => new Set([...prev, member.uuid]));
+                            {memberList.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="h-20 text-center text-sm text-muted-foreground">
+                                        <br/><br/>
+                                        등록된 구성원이 없어요. 새 구성원 추가 버튼으로 구성원을 등록해 주세요.
+                                    </td>
+                                </tr>
+                            ) : (
+                                memberList.map((member, idx) => {
+                                    const bgColor = idx % 2 === 0 ? 'bg-accent' : '';
+                                    return (
+                                        <tr key={member.uuid}>
+                                            <td className="h-1 align-middle"> {/** Profile Picture */}
+                                                <div className={`h-full rounded-l-lg flex justify-center items-center text-gray-600 ${bgColor}`}>
+                                                    <Image
+                                                        src={(member.github && !githubFailedMembers.has(member.uuid)) ?
+                                                            `https://github.com/${member.github}.png` :
+                                                            `/emoji/${member.emoji}.png`
                                                         }
-                                                    }}
-                                                    key={idx}
-                                                    alt="Profile Picture"
-                                                />
-                                            </div>
-                                        </td>
-                                        <td className="h-1 align-middle text-left"> {/** Position */}
-                                            <div className={`h-full text-sm ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button className="h-6 w-[3.5rem] px-2.5 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600">
-                                                            {positionText[member.position]}
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent className="w-32">
-                                                        <DropdownMenuRadioGroup value={member.position.toString()} onValueChange={(val) => {
-                                                            updateMemberField(member.uuid, 'position', parseInt(val));
+                                                        className="rounded-full hover:grayscale-[50%] hover:scale-95 transition-transform duration-200"
+                                                        width={32}
+                                                        height={32}
+                                                        style={{
+                                                            scale: (member.github == null || githubFailedMembers.has(member.uuid)) ?
+                                                                '1.1' : '1'
+                                                        }}
+                                                        onClick={() => {
+                                                            setCurrentMember(member);
+                                                            setNewNickname(member.github || '');
+                                                            setSelectedEmoji(null);
+                                                            setIsOpenNicknameDialog(true);
+                                                        }}
+                                                        onError={() => {
+                                                            if (member.github && !githubFailedMembers.has(member.uuid)) {
+                                                                setGithubFailedMembers(prev => new Set([...prev, member.uuid]));
+                                                            }
+                                                        }}
+                                                        key={idx}
+                                                        alt="Profile Picture"
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="h-1 align-middle text-left"> {/** Position */}
+                                                <div className={`h-full text-sm ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button className="h-6 w-[3.5rem] px-2.5 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600">
+                                                                {positionText[member.position]}
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent className="w-32">
+                                                            <DropdownMenuRadioGroup value={member.position.toString()} onValueChange={(val) => {
+                                                                updateMemberField(member.uuid, 'position', parseInt(val));
+                                                            }}>
+                                                                {positionText.map((text, idx) => (
+                                                                    <DropdownMenuRadioItem key={idx} value={idx.toString()}>
+                                                                        {text}
+                                                                    </DropdownMenuRadioItem>
+                                                                ))}
+                                                            </DropdownMenuRadioGroup>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </td>
+                                            <td className="h-1 align-middle text-left"> {/** Name */}
+                                                <div className={`h-full text-sm px-2.5 ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
+                                                    <Button className="h-6 w-[3.5rem] rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
+                                                        onClick={() => {
+                                                            setCurrentMember(member);
+                                                            setNewName(member.name);
+                                                            setIsOpenNameDialog(true);
                                                         }}>
-                                                            {positionText.map((text, idx) => (
-                                                                <DropdownMenuRadioItem key={idx} value={idx.toString()}>
-                                                                    {text}
-                                                                </DropdownMenuRadioItem>
-                                                            ))}
-                                                        </DropdownMenuRadioGroup>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </td>
-                                        <td className="h-1 align-middle text-left"> {/** Name */}
-                                            <div className={`h-full text-sm px-2.5 ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
-                                                <Button className="h-6 w-[3.5rem] rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
-                                                    onClick={() => {
-                                                        setCurrentMember(member);
-                                                        setNewName(member.name);
-                                                        setIsOpenNameDialog(true);
-                                                    }}>
-                                                    {member.name}
-                                                </Button>
-                                            </div>
-                                        </td>
-                                        <td className="h-1 align-middle text-left"> {/** Status */}
-                                            <div className={`h-full text-sm ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600">
-                                                            {statusCaption[member.status]}
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent className="w-32">
-                                                        <DropdownMenuRadioGroup value={member.status.toString()} onValueChange={(val) => {
-                                                            changeMemberStatus(member.uuid, parseInt(val));
+                                                        {member.name}
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                            <td className="h-1 align-middle text-left"> {/** Status */}
+                                                <div className={`h-full text-sm ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600">
+                                                                {statusCaption[member.status]}
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent className="w-32">
+                                                            <DropdownMenuRadioGroup value={member.status.toString()} onValueChange={(val) => {
+                                                                changeMemberStatus(member.uuid, parseInt(val));
+                                                            }}>
+                                                                {statusCaption.map((text, idx) => (
+                                                                    <DropdownMenuRadioItem key={idx} value={idx.toString()}>
+                                                                        {text}
+                                                                    </DropdownMenuRadioItem>
+                                                                ))}
+                                                            </DropdownMenuRadioGroup>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </td>
+                                            <td className="h-1 align-middle"> {/** Modify Infos */}
+                                                <div className={`h-full text-sm flex items-center justify-center font-medium ${bgColor} text-gray-600`}>
+                                                    <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
+                                                        onClick={() => {
+                                                            setCurrentMember(member);
+                                                            setNewCard('');
+                                                            setCardError('');
+                                                            setIsOpenCardDialog(true);
                                                         }}>
-                                                            {statusCaption.map((text, idx) => (
-                                                                <DropdownMenuRadioItem key={idx} value={idx.toString()}>
-                                                                    {text}
-                                                                </DropdownMenuRadioItem>
-                                                            ))}
-                                                        </DropdownMenuRadioGroup>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </td>
-                                        <td className="h-1 align-middle"> {/** Modify Infos */}
-                                            <div className={`h-full text-sm flex items-center justify-center font-medium ${bgColor} text-gray-600`}>
-                                                <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
-                                                    onClick={() => {
-                                                        setCurrentMember(member);
-                                                        setNewCard('');
-                                                        setCardError('');
-                                                        setIsOpenCardDialog(true);
-                                                    }}>
-                                                    <CreditCard className="w-3 h-3 mr-0.5" />
-                                                    카드
-                                                </Button>
-                                                <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-red-500 text-red-500 hover:text-white"
-                                                    onClick={() => {
-                                                        setCurrentMember(member);
-                                                        setIsOpenDeleteDialog(true);
-                                                    }}>
-                                                    삭제
-                                                </Button>
-                                            </div>
-                                        </td>
-                                        <td className="h-1 align-middle"> {/** Reorder Handle */}
-                                            <div className={`h-full text-sm rounded-r-lg flex items-center justify-center font-medium ${bgColor}`}>
-                                                <ChevronDown strokeWidth={1.6} className='stroke-slate-400 mr-1.5 cursor-pointer hover:stroke-slate-700' onClick={() => moveMember(idx, 1)} />
-                                                <ChevronUp strokeWidth={1.6} className='stroke-slate-400 cursor-pointer hover:stroke-slate-700' onClick={() => moveMember(idx, -1)} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            }
+                                                        <CreditCard className="w-3 h-3 mr-0.5" />
+                                                        카드
+                                                    </Button>
+                                                    <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-red-500 text-red-500 hover:text-white"
+                                                        onClick={() => {
+                                                            setCurrentMember(member);
+                                                            setIsOpenDeleteDialog(true);
+                                                        }}>
+                                                        삭제
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                            <td className="h-1 align-middle"> {/** Reorder Handle */}
+                                                <div className={`h-full text-sm rounded-r-lg flex items-center justify-center font-medium ${bgColor}`}>
+                                                    <ChevronDown strokeWidth={1.6} className='stroke-slate-400 mr-1.5 cursor-pointer hover:stroke-slate-700' onClick={() => moveMember(idx, 1)} />
+                                                    <ChevronUp strokeWidth={1.6} className='stroke-slate-400 cursor-pointer hover:stroke-slate-700' onClick={() => moveMember(idx, -1)} />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             )}
                         </tbody>
                     </table>
@@ -1837,7 +1838,7 @@ function MemberSection() {
                                 />
                             </div>
                             <div>
-                                <label className="text-sm font-medium">출입카드 UUID *</label>
+                                <label className="text-sm font-medium">ID카드 식별번호 *</label>
                                 <Input
                                     value={addMemberCard}
                                     onChange={(e) => setAddMemberCard(e.target.value)}
@@ -1923,9 +1924,10 @@ function MemberSection() {
             <AlertDialog open={isOpenCardDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>출입카드 변경</AlertDialogTitle>
+                        <AlertDialogTitle>ID 카드 재등록</AlertDialogTitle>
                         <AlertDialogDescription>
-                            새로운 출입카드 번호를 입력하세요. (32자리 16진수)
+                            새 ID 카드의 식별번호를 입력해 주세요.<br />
+                            식별번호를 모른다면, 'ID 카드 읽기' 메뉴에서 확인할 수 있어요.
                         </AlertDialogDescription>
                         <Input
                             value={newCard}
@@ -2064,7 +2066,7 @@ function MemberSection() {
                         <AlertDialogDescription asChild>
                             <div className="space-y-4">
                                 {cardTestStatus === 'idle' && (
-                                        <p>ID 카드의 식별번호를 확인할게요. 보안을 위해 OS eID 발급 서비스에서 발급받은 카드만 읽을 수 있어요.</p>
+                                    <p>ID 카드의 식별번호를 확인할게요.<br />보안을 위해 OS eID 발급 서비스에서 발급된 카드만 호환돼요.</p>
                                 )}
                                 {cardTestStatus === 'waiting' && (
                                     <div className="flex flex-col items-center py-6">
@@ -2079,21 +2081,13 @@ function MemberSection() {
                                         <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                                             <Check className="w-6 h-6 text-green-600" />
                                         </div>
-                                        <p className="mt-4 text-sm font-medium">카드를 성공적으로 인식했어요</p>
+                                        <p className="mt-4 text-sm font-medium">OS eID 카드 인식 성공!</p>
                                         <div className="mt-3 w-full">
-                                            <Label className="text-xs text-muted-foreground">카드 식별번호는 아래와 같아요.</Label>
+                                            <Label className="text-xs text-muted-foreground">아래의 식별번호를 복사하여 사용하세요.</Label>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <code className="flex-1 bg-slate-100 rounded-md py-2 px-3 text-xs font-mono break-all">
                                                     {cardTestUUID}
                                                 </code>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 px-2"
-                                                    onClick={copyUUIDToClipboard}
-                                                >
-                                                    <CreditCard className="w-4 h-4" />
-                                                </Button>
                                             </div>
                                         </div>
                                     </div>
@@ -2141,15 +2135,15 @@ function MemberSection() {
                                     }}>
                                     닫기
                                 </AlertDialogCancel>
-                                <AlertDialogAction
-                                    className="font-semibold h-9 bg-blue-500 text-white hover:bg-blue-600"
+                                <AlertDialogCancel
+                                    className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                                     onClick={() => {
                                         setCardTestStatus('idle');
                                         setCardTestUUID('');
                                         setCardTestError('');
                                     }}>
                                     다시 읽기
-                                </AlertDialogAction>
+                                </AlertDialogCancel>
                             </>
                         )}
                     </AlertDialogFooter>

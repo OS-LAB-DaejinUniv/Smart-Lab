@@ -21,10 +21,10 @@ const Advertisement = () => {
     let [isTransitioning, setIsTransitioning] = useState(false);
     let [fadeIn, setFadeIn] = useState(true); // 새 이미지 fade-in 트리거 (초기값 true: 첫 로드시 바로 보이도록)
     let [isError, setIsError] = useState(false);
-    let [loadedCount, setLoadedCount] = useState(0);
     const intervalRef = useRef(null);
     const transitionTimeoutRef = useRef(null);
     const fadeInTimeoutRef = useRef(null);
+    const objectUrlsRef = useRef([]);
 
     // fetch ad list and initial transition rate from server.
     useEffect(() => {
@@ -35,9 +35,47 @@ const Advertisement = () => {
                 const json = await res.json();
 
                 console.log('fetched ad image list', json.list);
-                setAdList(json.list);
+                if (objectUrlsRef.current.length > 0) {
+                    objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+                    objectUrlsRef.current = [];
+                }
+
                 if (json.list.length > 0) {
-                    setCurrentIndex(0);
+                    const preloadResults = await Promise.allSettled(
+                        json.list.map(async (adId) => {
+                            const adRes = await fetch(new URL(`/wallpad/ad/${adId}`, backendURL));
+                            if (!adRes.ok) {
+                                throw new Error(`failed to preload ad image: ${adId}`);
+                            }
+
+                            const adBlob = await adRes.blob();
+                            const objectURL = URL.createObjectURL(adBlob);
+                            objectUrlsRef.current.push(objectURL);
+
+                            return {
+                                id: adId,
+                                src: objectURL
+                            };
+                        })
+                    );
+
+                    const loadedAds = preloadResults
+                        .filter(result => result.status === 'fulfilled')
+                        .map(result => result.value);
+
+                    const failedCount = preloadResults.length - loadedAds.length;
+                    if (failedCount > 0) {
+                        console.error(`[Advertisement.js] ${failedCount} ad image(s) failed during preload.`);
+                    }
+
+                    setAdList(loadedAds);
+                    if (loadedAds.length > 0) {
+                        setCurrentIndex(0);
+                    } else {
+                        setIsError(true);
+                    }
+                } else {
+                    setAdList([]);
                 }
 
                 // fetch initial transition rate
@@ -53,6 +91,15 @@ const Advertisement = () => {
                 return;
             }
         })();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (objectUrlsRef.current.length > 0) {
+                objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+                objectUrlsRef.current = [];
+            }
+        };
     }, []);
 
     // socket.io listener for dynamic transition rate changes
@@ -150,15 +197,6 @@ const Advertisement = () => {
         };
     }, [currentIndex]);
 
-    const handleImageLoad = () => {
-        setLoadedCount(prev => prev + 1);
-    };
-
-    const handleImageError = (idx) => {
-        console.error('[Advertisement.js] Failed to load image at index:', idx);
-        // Don't set global error, just skip this image
-    };
-
     // show skeleton until all images are loaded
     if ((adList == null) && (isError == false)) {
         console.log('[Advertisement.js] ad section is being loaded now.');
@@ -201,8 +239,7 @@ const Advertisement = () => {
                     </span>
                 </p>
                 {/* preloaded images - only one visible at a time */}
-                {adList.map((adId, idx) => {
-                    const imageURL = new URL(`/wallpad/ad/${adId}`, backendURL).href;
+                {adList.map((ad, idx) => {
                     const isCurrent = currentIndex === idx;
                     const isPrevious = previousIndex === idx && isTransitioning;
                     const shouldShow = isCurrent || isPrevious;
@@ -218,11 +255,9 @@ const Advertisement = () => {
                     
                     return (
                         <img
-                            key={adId}
-                            src={imageURL}
+                            key={ad.id}
+                            src={ad.src}
                             alt={`ad_image_${idx}`}
-                            onLoad={handleImageLoad}
-                            onError={() => handleImageError(idx)}
                             style={{
                                 position: 'absolute',
                                 top: 0,

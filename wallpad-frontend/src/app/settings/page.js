@@ -1289,12 +1289,12 @@ function MemberSection() {
     let [emojiList, setEmojiList] = useState([]);
     let [selectedEmoji, setSelectedEmoji] = useState(null);
 
-    // Card test mode states
-    let [isOpenCardTestDialog, setIsOpenCardTestDialog] = useState(false);
-    let [cardTestStatus, setCardTestStatus] = useState('idle'); // 'idle' | 'waiting' | 'success' | 'error'
-    let [cardTestUUID, setCardTestUUID] = useState('');
-    let [cardTestError, setCardTestError] = useState('');
-    let cardTestEventSourceRef = useRef(null);
+    // Card read states (used in add-member and card re-register dialogs)
+    let [cardReadStatus, setCardReadStatus] = useState('idle'); // 'idle' | 'waiting' | 'success' | 'error'
+    let [cardReadError, setCardReadError] = useState('');
+    let [cardReadTarget, setCardReadTarget] = useState(null); // 'add' | 'update' | null
+    let [cardReadValue, setCardReadValue] = useState('');
+    let cardReadEventSourceRef = useRef(null);
 
     function fetchEmojiList() {
         const emojiURL = new URL(`/wallpad/emoji`, `http://${location.hostname}:${backendPort}`);
@@ -1309,63 +1309,77 @@ function MemberSection() {
             });
     }
 
-    // Start card test: connect to SSE endpoint and wait for card read
-    function startCardTest() {
-        setCardTestStatus('waiting');
-        setCardTestUUID('');
-        setCardTestError('');
+    function resetCardReadState() {
+        if (cardReadEventSourceRef.current) {
+            cardReadEventSourceRef.current.close();
+            cardReadEventSourceRef.current = null;
+        }
+        setCardReadStatus('idle');
+        setCardReadError('');
+        setCardReadTarget(null);
+        setCardReadValue('');
+    }
+
+    function startCardRead(target) {
+        if (!target) return;
+
+        if (cardReadEventSourceRef.current) {
+            cardReadEventSourceRef.current.close();
+            cardReadEventSourceRef.current = null;
+        }
+
+        setCardReadTarget(target);
+        setCardReadStatus('waiting');
+        setCardReadError('');
+        setCardReadValue('');
 
         const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
         const cardTestURL = new URL(`/wallpad/card/test?token=${token}`, `http://${location.hostname}:${backendPort}`);
 
         const eventSource = new EventSource(cardTestURL);
-        cardTestEventSourceRef.current = eventSource;
+        cardReadEventSourceRef.current = eventSource;
 
-        eventSource.addEventListener('connected', (e) => {
-            console.log('[Card Test] Connected, waiting for card...');
+        eventSource.addEventListener('connected', () => {
+            console.log('[Card Read] Connected, waiting for card...');
         });
 
         eventSource.addEventListener('cardRead', (e) => {
             const data = JSON.parse(e.data);
             if (data.status && data.uuid) {
-                setCardTestStatus('success');
-                setCardTestUUID(data.uuid);
+                setCardReadStatus('success');
+                setCardReadValue(data.uuid);
+                if (target === 'add') {
+                    setAddMemberCard(data.uuid);
+                    setAddMemberError('');
+                } else if (target === 'update') {
+                    setNewCard(data.uuid);
+                    setCardError('');
+                }
             }
             eventSource.close();
-            cardTestEventSourceRef.current = null;
+            cardReadEventSourceRef.current = null;
         });
 
         eventSource.addEventListener('error', (e) => {
             try {
                 const data = JSON.parse(e.data);
-                setCardTestError(data.reason || '카드 읽기에 실패했습니다.');
+                setCardReadError(data.reason || '카드 읽기에 실패했습니다.');
             } catch {
-                setCardTestError('카드 읽기에 실패했습니다.');
+                setCardReadError('카드 읽기에 실패했습니다.');
             }
-            setCardTestStatus('error');
+            setCardReadStatus('error');
             eventSource.close();
-            cardTestEventSourceRef.current = null;
+            cardReadEventSourceRef.current = null;
         });
 
         eventSource.onerror = () => {
-            // Only set error if we haven't already received a success/error event
-            if (cardTestEventSourceRef.current) {
-                setCardTestStatus('error');
-                setCardTestError('서버와의 연결이 끊어졌습니다.');
+            if (cardReadEventSourceRef.current) {
+                setCardReadStatus('error');
+                setCardReadError('서버와의 연결이 끊어졌습니다.');
                 eventSource.close();
-                cardTestEventSourceRef.current = null;
+                cardReadEventSourceRef.current = null;
             }
         };
-    }
-
-    // Cancel card test: close SSE connection
-    function cancelCardTest() {
-        if (cardTestEventSourceRef.current) {
-            cardTestEventSourceRef.current.close();
-            cardTestEventSourceRef.current = null;
-        }
-        setCardTestStatus('idle');
-        setIsOpenCardTestDialog(false);
     }
 
     function fetchMembetList() {
@@ -1413,6 +1427,13 @@ function MemberSection() {
         fetchMembetList();
         fetchStatusCaption();
         fetchEmojiList();
+
+        return () => {
+            if (cardReadEventSourceRef.current) {
+                cardReadEventSourceRef.current.close();
+                cardReadEventSourceRef.current = null;
+            }
+        };
     }, []);
 
     const addNewMember = () => {
@@ -1445,6 +1466,7 @@ function MemberSection() {
                 if (body.status) {
                     fetchMembetList();
                     setIsOpenAddMemberDialog(false);
+                    resetCardReadState();
                     setAddMemberName('');
                     setAddMemberCard('');
                     setAddMemberNickname('');
@@ -1535,6 +1557,7 @@ function MemberSection() {
             .then(ok => {
                 if (ok) {
                     setIsOpenCardDialog(false);
+                    resetCardReadState();
                     setCardError('');
                 }
             });
@@ -1735,17 +1758,18 @@ function MemberSection() {
                                             </td>
                                             <td className="h-1 align-middle"> {/** Modify Infos */}
                                                 <div className={`h-full text-sm flex items-center justify-center font-medium ${bgColor} text-gray-600`}>
-                                                    <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
+                                                    <Button className="h-6 w-12 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
                                                         onClick={() => {
                                                             setCurrentMember(member);
                                                             setNewCard('');
                                                             setCardError('');
+                                                            resetCardReadState();
                                                             setIsOpenCardDialog(true);
                                                         }}>
                                                         <CreditCard className="w-3 h-3 mr-0.5" />
                                                         카드
                                                     </Button>
-                                                    <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-red-500 text-red-500 hover:text-white"
+                                                    <Button className="h-6 w-12 rounded-md text-sm bg-transparent hover:bg-red-500 text-red-500 hover:text-white"
                                                         onClick={() => {
                                                             setCurrentMember(member);
                                                             setIsOpenDeleteDialog(true);
@@ -1772,22 +1796,13 @@ function MemberSection() {
                     <div className="space-x-2">
                         <Button
                             className="w-full sm:w-[8rem] h-9 bg-gray-100 hover:bg-gray-200 text-black"
-                            onClick={() => setIsOpenAddMemberDialog(true)}
+                            onClick={() => {
+                                resetCardReadState();
+                                setIsOpenAddMemberDialog(true);
+                            }}
                         >
                             <UserPlus className="w-4 h-4 mr-1" />
                             새 구성원 추가
-                        </Button>
-                        <Button
-                            className="w-full sm:w-[8rem] h-9 bg-gray-100 hover:bg-gray-200 text-black"
-                            onClick={() => {
-                                setCardTestStatus('idle');
-                                setCardTestUUID('');
-                                setCardTestError('');
-                                setIsOpenCardTestDialog(true);
-                            }}
-                        >
-                            <Nfc className="w-4 h-4 mr-1" />
-                            ID 카드 읽기
                         </Button>
                     </div>
                 </div>
@@ -1846,6 +1861,26 @@ function MemberSection() {
                                     placeholder="32자리 16진수"
                                     fontFamily="monospace"
                                 />
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Button
+                                        type="button"
+                                        className="h-8 bg-gray-100 hover:bg-gray-200 text-black"
+                                        onClick={() => startCardRead('add')}
+                                        disabled={cardReadStatus === 'waiting' && cardReadTarget === 'add'}
+                                    >
+                                        <Nfc className="w-4 h-4 mr-1" />
+                                        {cardReadStatus === 'waiting' && cardReadTarget === 'add' ? '읽는 중...' : 'ID 카드 읽기'}
+                                    </Button>
+                                    {cardReadStatus === 'waiting' && cardReadTarget === 'add' && (
+                                        <p className="text-xs text-muted-foreground">카드를 태그해 주세요.</p>
+                                    )}
+                                </div>
+                                {cardReadStatus === 'success' && cardReadTarget === 'add' && (
+                                    <p className="text-xs text-green-600 mt-1">카드 번호 <pre>{cardReadValue}</pre>를 인식했습니다. </p>
+                                )}
+                                {cardReadStatus === 'error' && cardReadTarget === 'add' && (
+                                    <p className="text-xs text-red-500 mt-1">{cardReadError || '카드 읽기에 실패했습니다.'}</p>
+                                )}
                             </div>
                             <div>
                                 <label className="text-sm font-medium">GitHub 닉네임</label>
@@ -1876,6 +1911,7 @@ function MemberSection() {
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                             onClick={() => {
+                                resetCardReadState();
                                 setIsOpenAddMemberDialog(false);
                                 setAddMemberError('');
                             }}>
@@ -1927,19 +1963,42 @@ function MemberSection() {
                         <AlertDialogTitle>ID 카드 재등록</AlertDialogTitle>
                         <AlertDialogDescription>
                             새 ID 카드의 식별번호를 입력해 주세요.<br />
-                            식별번호를 모른다면, 'ID 카드 읽기' 메뉴에서 확인할 수 있어요.
+                            아래의 'ID 카드 읽기' 버튼으로 자동 등록하거나 직접 입력할 수도 있어요.
                         </AlertDialogDescription>
                         <Input
                             value={newCard}
                             onChange={(e) => setNewCard(e.target.value)}
                             className="mt-2"
                         />
+                        <div className="flex items-center gap-2 mt-2">
+                            <Button
+                                type="button"
+                                className="h-8 bg-gray-100 hover:bg-gray-200 text-black"
+                                onClick={() => startCardRead('update')}
+                                disabled={cardReadStatus === 'waiting' && cardReadTarget === 'update'}
+                            >
+                                <Nfc className="w-4 h-4 mr-1" />
+                                {cardReadStatus === 'waiting' && cardReadTarget === 'update' ? '읽는 중...' : 'ID 카드 읽기'}
+                            </Button>
+                            {cardReadStatus === 'waiting' && cardReadTarget === 'update' && (
+                                <p className="text-xs text-muted-foreground">카드를 태그해 주세요.</p>
+                            )}
+                        </div>
+                        {cardReadStatus === 'success' && cardReadTarget === 'update' && (
+                             <p className="text-xs text-green-600 mt-1">카드 번호 <pre>{cardReadValue}</pre>를 인식했습니다. </p>
+                        )}
+                        {cardReadStatus === 'error' && cardReadTarget === 'update' && (
+                            <p className="text-xs text-red-500 mt-1">{cardReadError || '카드 읽기에 실패했습니다.'}</p>
+                        )}
                         {cardError && <p className="text-red-500 text-sm mt-1">{cardError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenCardDialog(false)}>
+                            onClick={() => {
+                                resetCardReadState();
+                                setIsOpenCardDialog(false);
+                            }}>
                             취소
                         </AlertDialogCancel>
                         <AlertDialogAction
@@ -2056,99 +2115,6 @@ function MemberSection() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* 카드 테스트 모달 */}
-            <AlertDialog open={isOpenCardTestDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            ID 카드 읽기
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-4">
-                                {cardTestStatus === 'idle' && (
-                                    <p>ID 카드의 식별번호를 확인할게요.<br />보안을 위해 OS eID 발급 서비스에서 발급된 카드만 호환돼요.</p>
-                                )}
-                                {cardTestStatus === 'waiting' && (
-                                    <div className="flex flex-col items-center py-6">
-                                        <div className="animate-pulse">
-                                            <Nfc className="w-12 h-12 text-blue-500" />
-                                        </div>
-                                        <p className="mt-4 text-sm">발급받은 카드를 출근부에 태그해 주세요.</p>
-                                    </div>
-                                )}
-                                {cardTestStatus === 'success' && (
-                                    <div className="flex flex-col items-center py-4">
-                                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                                            <Check className="w-6 h-6 text-green-600" />
-                                        </div>
-                                        <p className="mt-4 text-sm font-medium">OS eID 카드 인식 성공!</p>
-                                        <div className="mt-3 w-full">
-                                            <Label className="text-xs text-muted-foreground">아래의 식별번호를 복사하여 사용하세요.</Label>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <code className="flex-1 bg-slate-100 rounded-md py-2 px-3 text-xs font-mono break-all">
-                                                    {cardTestUUID}
-                                                </code>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {cardTestStatus === 'error' && (
-                                    <div className="flex flex-col items-center py-4">
-                                        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                                            <XIcon className="w-6 h-6 text-red-600" />
-                                        </div>
-                                        <p className="mt-4 text-sm font-medium text-red-600">{cardTestError || '카드 읽기에 실패했습니다.'}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        {cardTestStatus === 'idle' && (
-                            <>
-                                <AlertDialogCancel
-                                    className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                                    onClick={() => setIsOpenCardTestDialog(false)}>
-                                    취소
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                    className="font-semibold border-0 h-9 bg-gray-100 text-black-500 hover:bg-gray-200"
-                                    onClick={startCardTest}>
-                                    시작
-                                </AlertDialogAction>
-                            </>
-                        )}
-                        {cardTestStatus === 'waiting' && (
-                            <AlertDialogCancel
-                                className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                                onClick={cancelCardTest}>
-                                취소
-                            </AlertDialogCancel>
-                        )}
-                        {(cardTestStatus === 'success' || cardTestStatus === 'error') && (
-                            <>
-                                <AlertDialogCancel
-                                    className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                                    onClick={() => {
-                                        setCardTestStatus('idle');
-                                        setIsOpenCardTestDialog(false);
-                                    }}>
-                                    닫기
-                                </AlertDialogCancel>
-                                <AlertDialogCancel
-                                    className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                                    onClick={() => {
-                                        setCardTestStatus('idle');
-                                        setCardTestUUID('');
-                                        setCardTestError('');
-                                    }}>
-                                    다시 읽기
-                                </AlertDialogCancel>
-                            </>
-                        )}
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </>
     )
 };
@@ -2697,6 +2663,7 @@ function ExtensionSection() {
         setStatusMsg(null);
         setIsNewFile(false);
         setNewFileName('');
+        setRenamingFile(null);
         const url = new URL(`/wallpad/management/extension/read/${encodeURIComponent(filename)}`, baseURL);
         fetch(url, {
             headers: { 'Authorization': token }
@@ -2847,40 +2814,16 @@ function ExtensionSection() {
             <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <Label className="text-sm font-semibold mr-1"><FileCode className="w-3.5 h-3.5 inline mr-1 mb-0.5" />스크립트 파일</Label>
                 {files.map(f => (
-                    renamingFile === f ? (
-                        <div key={f} className="flex items-center gap-1">
-                            <Input
-                                className="h-7 text-xs font-mono w-[12rem]"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') confirmRename(f);
-                                    if (e.key === 'Escape') setRenamingFile(null);
-                                }}
-                                autoFocus
-                            />
-                            <button className="p-0.5 hover:bg-gray-200 rounded" onClick={() => confirmRename(f)} title="확인">
-                                <Check className="w-3.5 h-3.5 text-green-600" />
-                            </button>
-                            <button className="p-0.5 hover:bg-gray-200 rounded" onClick={() => setRenamingFile(null)} title="취소">
-                                <X className="w-3.5 h-3.5 text-gray-500" />
-                            </button>
-                        </div>
-                    ) : (
-                        <div key={f} className="flex items-center gap-0.5">
-                            <Button
-                                variant={selectedFile === f && !isNewFile ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => openFile(f)}
-                            >
-                                {f}
-                            </Button>
-                            <button className="p-0.5 hover:bg-gray-200 rounded" onClick={() => startRename(f)} title="이름 변경">
-                                <Pencil className="w-3 h-3 text-gray-400" />
-                            </button>
-                        </div>
-                    )
+                    <div key={f} className="flex items-center gap-0.5">
+                        <Button
+                            variant={selectedFile === f && !isNewFile ? 'default' : 'outline'}
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => openFile(f)}
+                        >
+                            {f}
+                        </Button>
+                    </div>
                 ))}
                 <Button
                     variant="outline"
@@ -2910,10 +2853,48 @@ function ExtensionSection() {
             {(selectedFile || isNewFile) && (
                 <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm font-semibold">
-                            {isNewFile ? (newFileName || '새 파일') : selectedFile}
-                            {hasUnsavedChanges && <span className="text-orange-500 ml-1">●</span>}
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                            {isNewFile ? (
+                                <Label className="text-sm font-semibold">
+                                    {newFileName || '새 파일'}
+                                    {hasUnsavedChanges && <span className="text-orange-500 ml-1">●</span>}
+                                </Label>
+                            ) : renamingFile === selectedFile ? (
+                                <>
+                                    <Input
+                                        className="h-7 text-xs font-mono w-[14rem]"
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') confirmRename(selectedFile);
+                                            if (e.key === 'Escape') setRenamingFile(null);
+                                        }}
+                                        autoFocus
+                                    />
+                                    <button className="p-0.5 hover:bg-gray-200 rounded" onClick={() => confirmRename(selectedFile)} title="확인">
+                                        <Check className="w-3.5 h-3.5 text-green-600" />
+                                    </button>
+                                    <button className="p-0.5 hover:bg-gray-200 rounded" onClick={() => setRenamingFile(null)} title="취소">
+                                        <X className="w-3.5 h-3.5 text-gray-500" />
+                                    </button>
+                                    {hasUnsavedChanges && <span className="text-orange-500 ml-1">●</span>}
+                                </>
+                            ) : (
+                                <>
+                                    <Label className="text-sm font-semibold">
+                                        {selectedFile}
+                                        {hasUnsavedChanges && <span className="text-orange-500 ml-1">●</span>}
+                                    </Label>
+                                    <button
+                                        className="p-0.5 hover:bg-gray-200 rounded"
+                                        onClick={() => startRename(selectedFile)}
+                                        title="이름 변경"
+                                    >
+                                        <Pencil className="w-3 h-3 text-gray-500" />
+                                    </button>
+                                </>
+                            )}
+                        </div>
                         <div className="flex gap-3 items-center">
                             {!isNewFile && selectedFile && (
                                 <button

@@ -2,12 +2,13 @@
 
 import packageJSON from '../../package';
 import Image from 'next/image';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Profile from './components/Profile';
 import ProfileSkeleton from './components/ProfileSkeleton';
 import NotifyWindow from './components/NotifyWindow';
 import Advertisement from './components/Advertisement';
 import AdvertisementSkeleton from './components/AdvertisementSkeleton';
+import Clock from './components/Clock';
 import io from 'socket.io-client';
 import domtoimage from 'dom-to-image';
 
@@ -42,10 +43,9 @@ function captureMainElement(socket) {
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
-  const [clock, setClock] = useState('00:00:00');
-  const [formattedDate, setFormattedDate] = useState('');
   let [notifyLeftTime, setNotifyLeftTime] = useState(0);
   let [socketStatus, setSocketStatus] = useState(false);
+  const notifyTimeoutRef = useRef(null);
   let socket = null;
 
   // state variable which has current member object array to show.
@@ -58,6 +58,32 @@ export default function Home() {
       new Date().getTime() + duration
     );
   };
+
+  useEffect(() => {
+    if (notifyTimeoutRef.current) {
+      clearTimeout(notifyTimeoutRef.current);
+      notifyTimeoutRef.current = null;
+    }
+
+    if (notifyLeftTime <= 0) return;
+
+    const remaining = notifyLeftTime - Date.now();
+    if (remaining <= 0) {
+      setNotifyLeftTime(0);
+      return;
+    }
+
+    notifyTimeoutRef.current = setTimeout(() => {
+      setNotifyLeftTime(0);
+    }, remaining);
+
+    return () => {
+      if (notifyTimeoutRef.current) {
+        clearTimeout(notifyTimeoutRef.current);
+        notifyTimeoutRef.current = null;
+      }
+    };
+  }, [notifyLeftTime]);
 
   /* ========== start socket.io setup ========== */
   useEffect(() => {
@@ -121,12 +147,19 @@ export default function Home() {
       captureMainElement(socket);
     });
 
-    // auto-capture: send screenshot periodically so admin preview stays up-to-date
+    // track whether any admin is viewing the screenshot stream
+    let hasScreenshotViewer = false;
+    socket.on('screenshotViewerCount', (count) => {
+      hasScreenshotViewer = count > 0;
+      console.log(`[Screenshot] Viewer count: ${count}`);
+    });
+
+    // auto-capture: only send when an admin page is actively watching
     const autoCaptureInterval = setInterval(() => {
-      if (socket.connected) {
+      if (socket.connected && hasScreenshotViewer) {
         captureMainElement(socket);
       }
-    }, 500);
+    }, 300);
 
     return () => {
       clearInterval(autoCaptureInterval);
@@ -135,23 +168,7 @@ export default function Home() {
   }, []);
   /* ========== end socket.io setup ========== */
 
-  // make time goes..
-  useEffect(() => {
-    const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
-
-    const updateClock = () => {
-      const date = new Date();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      setClock(`${hours}:${minutes}:${seconds}`);
-      setFormattedDate(`${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. (${weekDay[date.getDay()]})`);
-    };
-
-    updateClock();
-    const intervalId = setInterval(updateClock, 200);
-    return () => clearInterval(intervalId);
-  }, []);
+  // clock is now handled by the <Clock /> component to avoid full Home re-renders.
 
   return (
     <>
@@ -173,14 +190,7 @@ export default function Home() {
           {/* the section that shows logo, datetime and advertisement. */}
           <section className='flex justify-between'>
             <Image src='/logo.png' alt="Logo" width={180} height={0} />
-            <div className='flex flex-col items-end'>
-              <p className={'text-xl font-semibold tabular-nums'}>
-                {(() => `${clock}`)()}
-              </p>
-              <p className={'text-sm font-semibold text-[#5E636B]'}>
-                {(() => formattedDate)()}
-              </p>
-            </div>
+            <Clock />
           </section>
           <p className='text-2xl font-bold mt-7 mb-3'>
             {packageJSON.config.title}

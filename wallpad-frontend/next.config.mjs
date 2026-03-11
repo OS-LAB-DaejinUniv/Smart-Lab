@@ -31,7 +31,7 @@ const nextConfig = {
         hostname: 'wallpad.oslab'
       }
     ],
-    minimumCacheTTL: 10,
+    minimumCacheTTL: 3600,
     qualities: [25, 75],
   },
   async rewrites() {

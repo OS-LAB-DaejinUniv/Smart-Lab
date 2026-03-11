@@ -64,9 +64,15 @@ app.use(extractToken);
 		console.log(`Socket.IO server started on port ${config.socketioConf.port}.`);
 	});
 
+	// Track how many admin clients are watching the screenshot stream
+	let screenshotViewerCount = 0;
+
 	// ** WebSocket event handlers **
 	io.on('connection', (socket) => {
 		console.log('Wallpad frontend connected.');
+
+		// send current screenshot viewer count so reconnected clients know the state
+		socket.emit('screenshotViewerCount', screenshotViewerCount);
 
 		socket.on('getMemberStat', () => {
 			console.log('Received WebSocket request: getMemberStat');
@@ -119,6 +125,11 @@ app.use(extractToken);
 
 	// SSE endpoint: watch screenshot.png for changes
 	app.get('/wallpad/screenshot/stream', (req, res) => {
+		screenshotViewerCount++;
+		io.emit('screenshotViewerCount', screenshotViewerCount);
+		// trigger an immediate capture so the admin gets a fresh screenshot right away
+		io.emit('screenshot');
+		console.log(`[Screenshot] Viewer connected (total: ${screenshotViewerCount})`);
 		res.writeHead(200, {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
@@ -152,6 +163,9 @@ app.use(extractToken);
 
 		req.on('close', () => {
 			clearInterval(interval);
+			screenshotViewerCount = Math.max(0, screenshotViewerCount - 1);
+			io.emit('screenshotViewerCount', screenshotViewerCount);
+			console.log(`[Screenshot] Viewer disconnected (total: ${screenshotViewerCount})`);
 		});
 	});
 

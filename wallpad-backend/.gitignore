@@ -4,3 +4,5 @@ wallpad.db
 /assets
 screenshot.png
 .swp
+wallpad-backend/assets/ad/config.json
+wallpad-backend/config.json

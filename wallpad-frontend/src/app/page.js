@@ -114,7 +114,7 @@ export default function Home() {
     socket.on('disconnect', (reason) => {
       console.warn('Socket.IO disconnected:', reason);
       setSocketStatus(false);
-      setNotifyStatus({ custom: { title: '연결이 끊어졌어요', message: '서버에 접속할 수 없어 서비스가 중단되었어요.\n연결이 재개되는 대로 자동으로 서비스를 재시작할게요.' } });
+      setNotifyStatus({ custom: { title: '연결이 끊어졌어요', message: '서버에 접속할 수 없어 서비스가 중단되었어요.\n연결이 재개되면 자동으로 서비스를 시작할게요.' } });
       setNotifyLeftTime(Date.now() + 60 * 60 * 1000); // keep showing for a long time until reconnect
     });
 
@@ -236,7 +236,7 @@ export default function Home() {
                 <AdvertisementSkeleton />
             }
           </div>
-          <div className='flex justify-center items-center bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
+          <div className='flex justify-center items-center bg-[#f2f4f6] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
             <div className={`flex justify-center items-center rounded-full bg-[#3081F5] ` +
               `${socketStatus ? 'w-[2rem] h-[2rem] animation-pulse' : ''}`} />
             <p className='absolute font-medium align-center tracking-tight'>

@@ -207,10 +207,8 @@ const Advertisement = () => {
     else if (isError) {
         console.error('[Advertisement.js] 1. failed to load ads.');
         return (
-            <div className='leading-normal bg-[#F5F5F5] font-semibold rounded-2xl overflow-hidden w-full h-[9.5rem]'>
-                <p className='mx-[.9rem] my-[.9rem]'>
-                    🤯 광고 이미지를 불러오지 못했어요.
-                </p>
+            <div className='flex justify-center items-center bg-[#f2f4f6] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+                <p>광고 이미지를 불러오지 못했어요</p>
             </div>
         )
     }
@@ -219,10 +217,8 @@ const Advertisement = () => {
     else if ((adList.length == 0) && (isError == false)) {
         console.log('[Advertisement.js] 2. there are no ads to show.');
         return (
-            <div className='leading-normal bg-[#F5F5F5] font-semibold rounded-2xl overflow-hidden w-full h-[9.5rem]'>
-                <p className='mx-[.9rem] my-[.9rem]'>
-                    🤔 현재 표시할 광고 이미지가 없어요
-                </p>
+            <div className='flex justify-center items-center bg-[#f2f4f6] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+                <p>현재 진행중인 광고가 없어요</p>
             </div>
         )
     }
@@ -252,6 +248,9 @@ const Advertisement = () => {
                     } else if (isPrevious) {
                         imageOpacity = 1;
                     }
+
+                    if (adList.length == 1)
+                        imageOpacity = 1;
                     
                     return (
                         <img

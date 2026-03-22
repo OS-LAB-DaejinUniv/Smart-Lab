@@ -3,7 +3,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 const AdvertisementSkeleton = () => {
     return (
-        <div className='flex flex-col justify-between p-5 bg-[#F5F5F5] rounded-2xl w-full h-[9.5rem]'>
+        <div className='flex flex-col justify-between p-5 bg-[#f2f4f6] rounded-2xl w-full h-[9.5rem]'>
             <div>
                 <Skeleton
                     style={{ width: '23rem' }}

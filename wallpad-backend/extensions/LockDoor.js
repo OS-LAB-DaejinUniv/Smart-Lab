@@ -12,7 +12,7 @@ module.exports = new Extension({
         const headers = { 'Authorization': 'password osa94l3l' };
 
         const peopleLeft = memberList.reduce((acc, curr) =>
-            (curr.status > 0) ? ++acc : acc
+            (curr.status == 1) ? ++acc : acc
             , 0);
 
         if (peopleLeft == 0) {

@@ -63,9 +63,14 @@ export default function SettingsLayout({ children }) {
                 if (cancelled) return;
                 // Drop the preauth param either way — if it failed, leaving it
                 // there would just keep retrying on every render.
+                // Use history.replaceState instead of router.replace to strip
+                // the param without engaging Next's router state machine — the
+                // latter caused a hook-count mismatch inside the App Router
+                // when navigating away from a URL with searchParams mid-mount.
                 params.delete('preauth');
                 const qs = params.toString();
-                router.replace(qs ? `${pathname}?${qs}` : pathname);
+                const cleanUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+                window.history.replaceState(null, '', cleanUrl);
                 if (ok) {
                     setAuthState('authed');
                     return;
@@ -100,9 +105,7 @@ export default function SettingsLayout({ children }) {
 
         run();
         return () => { cancelled = true; };
-    // pathname is included so the preauth handler re-runs if the URL changes
-    // while still mounted (e.g. router.replace inside this same effect).
-    }, [isSignin, router, pathname]);
+    }, [isSignin, router]);
 
     // background token-expiry watcher: proactively refresh when <60s left
     useEffect(() => {

@@ -1,8 +1,9 @@
 'use client'
 
 import packageJSON from '../../package';
-import Image from 'next/image';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import Profile from './components/Profile';
 import ProfileSkeleton from './components/ProfileSkeleton';
 import NotifyWindow from './components/NotifyWindow';
@@ -10,43 +11,125 @@ import Advertisement from './components/Advertisement';
 import AdvertisementSkeleton from './components/AdvertisementSkeleton';
 import Clock from './components/Clock';
 import io from 'socket.io-client';
-import domtoimage from 'dom-to-image';
 
-/**
- * Capture the <main> element as a PNG base64 string using dom-to-image.
- */
-function captureMainElement(socket) {
-  try {
-    const mainEl = document.querySelector('main');
-    if (!mainEl) {
-      console.error('[Screenshot] <main> element not found');
-      return;
-    }
+// Logo is always rendered at this fixed size on the main wallpad screen.
+const LOGO_WIDTH = 185;
+const LOGO_HEIGHT = 45;
 
-    domtoimage.toPng(mainEl, {
-      quality: 1,
-      width: mainEl.scrollWidth,
-      height: mainEl.scrollHeight,
-      style: {}
-    })
-      .then(base64 => {
-        socket.emit('screenshotData', { image: base64 });
-        console.log('[Screenshot] Captured and sent');
-      })
-      .catch(err => {
-        console.error('[Screenshot] Capture error:', err);
-      });
-  } catch (err) {
-    console.error('[Screenshot] Capture error:', err);
-  }
+// Design width of <main>; matches globals.css.
+const DESIGN_WIDTH = 540;
+
+const DEFAULT_THEME = { mode: 'light', darkStart: '19:00', darkEnd: '07:00' };
+
+// Returns 'light' or 'dark' for the given theme config at the given time.
+// In 'auto' mode the dark window may wrap past midnight (e.g. 19:00→07:00).
+function resolveActiveScheme(theme, now = new Date()) {
+  if (theme.mode === 'dark') return 'dark';
+  if (theme.mode !== 'auto') return 'light';
+  const toMin = (hhmm) => {
+    const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const start = toMin(theme.darkStart);
+  const end = toMin(theme.darkEnd);
+  if (start === null || end === null || start === end) return 'light';
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (start < end) return (nowMin >= start && nowMin < end) ? 'dark' : 'light';
+  return (nowMin >= start || nowMin < end) ? 'dark' : 'light';
 }
 
 export default function Home() {
   const [notifyStatus, setNotifyStatus] = useState({});
   let [notifyLeftTime, setNotifyLeftTime] = useState(0);
   let [socketStatus, setSocketStatus] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [title, setTitle] = useState(null);
+  const [logoSrcs, setLogoSrcs] = useState({ light: null, dark: null });
+  const [statusCaption, setStatusCaption] = useState([]);
+  const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [activeScheme, setActiveScheme] = useState('light');
   const notifyTimeoutRef = useRef(null);
   let socket = null;
+
+  // Fetch the runtime-configurable title and logo from the backend. Both are
+  // shown as skeletons until this resolves so a stale package.json title and
+  // a stale bundled logo never flash on screen. Re-invoked on socket connect
+  // so an offline-at-load page recovers once the backend becomes reachable.
+  const fetchPublicConfig = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const url = `http://${window.location.hostname}:${packageJSON.config.socketioPort}/wallpad/config/public`;
+    return fetch(url)
+      .then(res => res.json())
+      .then(body => {
+        if (!body || !body.status) return;
+        setTitle(body.title || '');
+        if (Array.isArray(body.memberStatusCaption)) {
+          setStatusCaption(body.memberStatusCaption);
+        }
+        if (body.theme && typeof body.theme === 'object') {
+          setTheme({ ...DEFAULT_THEME, ...body.theme });
+        }
+        if (body.logoUrls && typeof body.logoUrls === 'object') {
+          const v = body.logoVersion || 0;
+          const base = `http://${window.location.hostname}:${packageJSON.config.socketioPort}`;
+          setLogoSrcs({
+            light: body.logoUrls.light ? `${base}${body.logoUrls.light}?v=${v}` : null,
+            dark: body.logoUrls.dark ? `${base}${body.logoUrls.dark}?v=${v}` : null,
+          });
+        }
+      })
+      .catch(err => console.error('[config/public] fetch failed', err))
+      .finally(() => setConfigLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    fetchPublicConfig();
+  }, [fetchPublicConfig]);
+
+  // Apply the resolved color scheme as data-theme on <html>. Scoped to this
+  // page: cleanup removes the attribute, so navigating to /settings reverts
+  // to the light defaults declared on :root.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const apply = () => {
+      const scheme = resolveActiveScheme(theme);
+      setActiveScheme(scheme);
+      document.documentElement.setAttribute('data-theme', scheme);
+    };
+    apply();
+    // In auto mode the active scheme depends on wall-clock time, so re-check
+    // each minute to catch the darkStart/darkEnd boundaries.
+    const intervalId = theme.mode === 'auto' ? setInterval(apply, 60_000) : null;
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.documentElement.removeAttribute('data-theme');
+    };
+  }, [theme]);
+
+  // Auto-scale <main> so it occupies the full viewport width.
+  // Multiple triggers ensure the scale is never stale: resize/orientation
+  // events, a ResizeObserver, visibility changes, and a periodic safety net.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const applyScale = () => {
+      const scale = window.innerWidth / DESIGN_WIDTH;
+      document.documentElement.style.setProperty('--app-scale', String(scale));
+    };
+    applyScale();
+    window.addEventListener('resize', applyScale);
+    window.addEventListener('orientationchange', applyScale);
+    document.addEventListener('visibilitychange', applyScale);
+    const ro = new ResizeObserver(applyScale);
+    ro.observe(document.documentElement);
+    const safetyInterval = setInterval(applyScale, 2000);
+    return () => {
+      window.removeEventListener('resize', applyScale);
+      window.removeEventListener('orientationchange', applyScale);
+      document.removeEventListener('visibilitychange', applyScale);
+      ro.disconnect();
+      clearInterval(safetyInterval);
+    };
+  }, []);
 
   // state variable which has current member object array to show.
   let [memberStatus, setMemberStatus] = useState(Array(9).fill({
@@ -94,21 +177,24 @@ export default function Home() {
       }
     });
 
-    let hasConnected = false;
+    let isConnected = false;
 
     socket.on('connect', () => {
       console.log('successfully connected to socket.io server.');
       // always hide notification on connect (clears disconnect error popup)
       setNotifyLeftTime(0);
-      if (hasConnected) {
+      if (isConnected) {
         // reconnected after a disconnection — reload the page
         console.log('Reconnected to server. Reloading page...');
         location.reload();
         return;
       }
-      hasConnected = true;
+      isConnected = true;
       socket.emit('getMemberStat');
       setSocketStatus(true);
+      // Re-fetch title/logo in case the initial fetch failed (backend was
+      // offline when the page first loaded — reconnect path uses reload()).
+      fetchPublicConfig();
     });
 
     socket.on('disconnect', (reason) => {
@@ -141,28 +227,13 @@ export default function Home() {
       location.reload();
     });
 
-    // screenshot capture handler (manual trigger from admin)
-    socket.on('screenshot', () => {
-      console.log('[Screenshot] Capture requested');
-      captureMainElement(socket);
-    });
-
-    // track whether any admin is viewing the screenshot stream
-    let hasScreenshotViewer = false;
-    socket.on('screenshotViewerCount', (count) => {
-      hasScreenshotViewer = count > 0;
-      console.log(`[Screenshot] Viewer count: ${count}`);
-    });
-
-    // auto-capture: only send when an admin page is actively watching
-    const autoCaptureInterval = setInterval(() => {
-      if (socket.connected && hasScreenshotViewer) {
-        captureMainElement(socket);
+    socket.on('themeUpdate', (newTheme) => {
+      if (newTheme && typeof newTheme === 'object') {
+        setTheme({ ...DEFAULT_THEME, ...newTheme });
       }
-    }, 300);
+    });
 
     return () => {
-      clearInterval(autoCaptureInterval);
       if (socket) socket.disconnect();
     }
   }, []);
@@ -185,16 +256,46 @@ export default function Home() {
             />
           );
       })()}
-      <main className='flex flex-col p-9 justify-between bg-white rounded-2xl'>
+      <main className='flex flex-col p-9 justify-between bg-[var(--wp-bg)] rounded-2xl'>
         <section>
-          {/* the section that shows logo, datetime and advertisement. */}
-          <section className='flex justify-between'>
-            <Image src='/logo.png' alt="Logo" width={180} height={0} />
+          <section className='flex justify-between items-center'>
+            <div
+              style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT, overflow: 'hidden' }}
+              className='shrink-0 rounded-lg'
+            >
+              {(() => {
+                // Prefer the variant matching the active scheme; fall back to the
+                // other variant if the admin only uploaded one.
+                const resolvedLogo = logoSrcs[activeScheme] || logoSrcs.light || logoSrcs.dark;
+                if (configLoaded && resolvedLogo) {
+                  return (
+                    <img
+                      src={resolvedLogo}
+                      alt="Logo"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  );
+                }
+                return (
+                  <div
+                    style={{ width: '100%', height: '100%' }}
+                    className='bg-[var(--wp-surface)] animate-pulse rounded-lg'
+                  />
+                );
+              })()}
+            </div>
             <Clock />
           </section>
-          <p className='text-2xl font-bold mt-7 mb-3'>
-            {packageJSON.config.title}
-          </p>
+          <div className='mt-7 mb-3'>
+            {configLoaded && title !== null ? (
+              <p className='text-2xl font-bold'>{title}</p>
+            ) : (
+              <div
+                style={{ width: '320px', height: '32px' }}
+                className='bg-[var(--wp-surface)] animate-pulse rounded-lg'
+              />
+            )}
+          </div>
           <div className='flex flex-wrap justify-start gap-4'>
             {/* the section that shows member profile. */}
             {(() => {
@@ -215,6 +316,7 @@ export default function Home() {
                     name={user.name}
                     position={user.position}
                     status={user.status}
+                    statusCaption={statusCaption}
                     emoji={user.emoji}
                     github={user.github}
                     isAbsent={user.status != 1}
@@ -236,8 +338,8 @@ export default function Home() {
                 <AdvertisementSkeleton />
             }
           </div>
-          <div className='flex justify-center items-center bg-[#f2f4f6] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
-            <div className={`flex justify-center items-center rounded-full bg-[#3081F5] ` +
+          <div className='flex justify-center items-center bg-[var(--wp-surface)] rounded-2xl overflow-hidden w-full h-[8.5rem]'>
+            <div className={`flex justify-center items-center rounded-full bg-[var(--wp-accent)] ` +
               `${socketStatus ? 'w-[2rem] h-[2rem] animation-pulse' : ''}`} />
             <p className='absolute font-medium align-center tracking-tight'>
               {

@@ -1,9 +1,9 @@
 {
   "title": "리눅스 클라우드 컴퓨팅 심화 실습실",
   "arduino": {
-    "deviceSerial": "95735343633351D030F0",
+    "deviceSerial": "95335343136351B002B2",
     "baudRate": 115200,
-    "path": "/dev/ttyACM0"
+    "path": "/dev/ttyACM1"
   },
   "socketioConf": {
     "port": 5000,
@@ -18,7 +18,7 @@
   },
   "webUICreds": {
     "username": "admin",
-    "password": "password",
+    "password": "osa94131",
     "jwtSecret": "change-this-secret-to-yours",
     "frontendPort": 3000,
     "permitConcurrentLogin": false,
@@ -34,16 +34,9 @@
     "휴학"
   ],
   "memberDisplayOrder": [
-    "F5D86659F2473A2EFF1912F2B5C5654D",
-    "CE1EF2D8E1587D4BAA36E83C15DD86AD",
-    "DC5EE636A2E342672D38C3C14BCB5569",
-    "B24699AD0A46FED36F83964E552525A9",
-    "054F814EF99B8A56444CACA3CEAA9202",
-    "0220BE1A568C039685617452DABFA36B",
-    "11221122332233227755882256448822",
-    "00112233445566778899AABBCCDDEEFF"
+    "18D4CA8C670145CEA6348E951D55F592"
   ],
-  "adTransitionRate": 6000,
+  "adTransitionRate": 8000,
   "taskScriptDir": "./extensions/",
   "nextCacheDir": "../wallpad-frontend/.next/cache",
   "adImageDir": "./assets/ad",
@@ -62,9 +55,14 @@
     "enabled": false,
     "tokens": []
   },
-  "credentials": {
-    "username": null,
-    "password": null
+  "scheduledRefresh": {
+    "enabled": true,
+    "time": "00:00"
   },
-  "arduinoDeviceSerial": "95735343633351D030F0"
+  "theme": {
+    "mode": "auto",
+    "darkStart": "17:00",
+    "darkEnd": "08:00"
+  },
+  "logoUpdatedAt": 1779688188035
 }

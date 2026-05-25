@@ -14,7 +14,7 @@ const path = require('path');
 
 // middleware
 const cors = require('./middleware/cors');
-const { extractToken } = require('./middleware/auth');
+const { extractToken, parseBearer } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 
 // route modules
@@ -23,6 +23,7 @@ const systemRoutes = require('./routes/system');
 const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/member');
 const extensionRoutes = require('./routes/extension');
+const logoRoutes = require('./routes/logo');
 
 const dbconn = new Database(config.dbPath, config.dbConf);
 const app = express();
@@ -36,8 +37,6 @@ app.use(extractToken);
 // init wallpad
 (async () => {
 	// find device which matched with configured device number.
-	const cfgSerial = runtimeConfig.get('arduinoDeviceSerial') || config.arduino.deviceSerial;
-	config.arduino.deviceSerial = cfgSerial;
 	const deviceList = await autoDetect().list();
 	const isDeviceFound = deviceList.find(device => {
 		if (device.serialNumber == config.arduino.deviceSerial) {
@@ -47,7 +46,19 @@ app.use(extractToken);
 		}
 	});
 
-	if (!isDeviceFound) throw new Error('deviceNotFound');
+	if (!isDeviceFound) {
+		console.error(`Device with serial "${config.arduino.deviceSerial}" not found.`);
+		const arduinoCandidates = deviceList.filter(device => device.serialNumber);
+		if (arduinoCandidates.length === 0) {
+			console.error('No arduino devices are currently connected.');
+		} else {
+			console.error('Currently connected arduino devices:');
+			arduinoCandidates.forEach(device => {
+				console.error(`  - path=${device.path}, serialNumber=${device.serialNumber}`);
+			});
+		}
+		throw new Error('deviceNotFound');
+	}
 
 	// create depending instances
 	const db = new DB(dbconn);
@@ -64,15 +75,9 @@ app.use(extractToken);
 		console.log(`Socket.IO server started on port ${config.socketioConf.port}.`);
 	});
 
-	// Track how many admin clients are watching the screenshot stream
-	let screenshotViewerCount = 0;
-
 	// ** WebSocket event handlers **
 	io.on('connection', (socket) => {
 		console.log('Wallpad frontend connected.');
-
-		// send current screenshot viewer count so reconnected clients know the state
-		socket.emit('screenshotViewerCount', screenshotViewerCount);
 
 		socket.on('getMemberStat', () => {
 			console.log('Received WebSocket request: getMemberStat');
@@ -97,101 +102,76 @@ app.use(extractToken);
 			socket.emit('adTransitionRateResp', { rate });
 		});
 
-		// receive screenshot data from frontend
-		socket.on('screenshotData', (data) => {
-			try {
-				if (data && data.image) {
-					const base64Data = data.image.replace(/^data:image\/png;base64,/, '');
-					const screenshotPath = path.join(__dirname, 'screenshot.png');
-					fs.writeFileSync(screenshotPath, base64Data, 'base64');
-					console.log('[Screenshot] Saved screenshot.png');
-				}
-			} catch (err) {
-				console.error('[Screenshot] Failed to save:', err.message);
-			}
-		});
-
 		socket.on('disconnect', (reason) => {
 			console.log('Wallpad frontend disconnected. Reason: ' + reason);
 		});
 	});
 
+	// reconcile ad manifest against actual files on disk
+	adRoutes.reconcileAdManifest();
+
+	// seed the light wallpad logo from the legacy frontend public asset if none exists.
+	// The dark variant is intentionally not seeded — admins upload a dedicated dark logo.
+	(() => {
+		try {
+			if (logoRoutes.findLogoFile('light')) return;
+			const legacy = path.resolve(__dirname, '..', 'wallpad-frontend', 'public', 'logo.png');
+			if (fs.existsSync(legacy)) {
+				if (!fs.existsSync(logoRoutes.LOGO_DIR)) {
+					fs.mkdirSync(logoRoutes.LOGO_DIR, { recursive: true });
+				}
+				fs.copyFileSync(legacy, path.join(logoRoutes.LOGO_DIR, 'logo-light.png'));
+				runtimeConfig.set('logoUpdatedAt', Date.now());
+				console.log('[logo] seeded default light logo from wallpad-frontend/public/logo.png');
+			}
+		} catch (err) {
+			console.error('[logo] seed failed:', err);
+		}
+	})();
+
+	// schedule daily frontend refresh per config.scheduledRefresh
+	let scheduledRefreshTimer = null;
+	function scheduleNextRefresh() {
+		if (scheduledRefreshTimer) { clearTimeout(scheduledRefreshTimer); scheduledRefreshTimer = null; }
+		const cfg = config.scheduledRefresh;
+		if (!cfg || !cfg.enabled || !/^\d{2}:\d{2}$/.test(cfg.time || '')) return;
+		const [hh, mm] = cfg.time.split(':').map(Number);
+		if (hh > 23 || mm > 59) return;
+		const next = new Date();
+		next.setHours(hh, mm, 0, 0);
+		if (next <= new Date()) next.setDate(next.getDate() + 1);
+		scheduledRefreshTimer = setTimeout(() => {
+			io.emit('reqFrontendRefresh');
+			console.log(`[scheduledRefresh] emitted at ${new Date().toISOString()}`);
+			scheduleNextRefresh();
+		}, next.getTime() - Date.now());
+		console.log(`[scheduledRefresh] next at ${next.toISOString()}`);
+	}
+	scheduleNextRefresh();
+
 	// ** Mount route modules **
 	app.use('/wallpad/ad', adRoutes(io));
+	app.use('/wallpad/logo', logoRoutes(io));
 	app.use('/wallpad', systemRoutes(io));
 	app.use('/wallpad/management', authRoutes);
 	app.use('/wallpad/management/member', memberRoutes(db, io));
 	app.use('/wallpad/management/extension', extensionRoutes());
 
-	// SSE endpoint: watch screenshot.png for changes
-	app.get('/wallpad/screenshot/stream', (req, res) => {
-		screenshotViewerCount++;
-		io.emit('screenshotViewerCount', screenshotViewerCount);
-		// trigger an immediate capture so the admin gets a fresh screenshot right away
-		io.emit('screenshot');
-		console.log(`[Screenshot] Viewer connected (total: ${screenshotViewerCount})`);
-		res.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			'Connection': 'keep-alive',
-			'Access-Control-Allow-Origin': '*'
-		});
-
-		const screenshotPath = path.join(__dirname, 'screenshot.png');
-		let lastMtime = null;
-
-		// check initial state
-		try {
-			if (fs.existsSync(screenshotPath)) {
-				lastMtime = fs.statSync(screenshotPath).mtimeMs;
-				const imgData = fs.readFileSync(screenshotPath).toString('base64');
-				res.write(`event: screenshot\ndata: ${JSON.stringify({ image: imgData, mtime: lastMtime })}\n\n`);
-			}
-		} catch (e) { /* ignore */ }
-
-		const interval = setInterval(() => {
-			try {
-				if (!fs.existsSync(screenshotPath)) return;
-				const stat = fs.statSync(screenshotPath);
-				if (lastMtime !== stat.mtimeMs) {
-					lastMtime = stat.mtimeMs;
-					const imgData = fs.readFileSync(screenshotPath).toString('base64');
-					res.write(`event: screenshot\ndata: ${JSON.stringify({ image: imgData, mtime: lastMtime })}\n\n`);
-				}
-			} catch (e) { /* ignore read errors */ }
-		}, 500);
-
-		req.on('close', () => {
-			clearInterval(interval);
-			screenshotViewerCount = Math.max(0, screenshotViewerCount - 1);
-			io.emit('screenshotViewerCount', screenshotViewerCount);
-			console.log(`[Screenshot] Viewer disconnected (total: ${screenshotViewerCount})`);
-		});
-	});
-
-	// trigger screenshot capture
-	app.post('/wallpad/screenshot/capture', (req, res) => {
-		try {
-			io.emit('screenshot');
-			res.json({ status: true });
-		} catch (err) {
-			res.status(500).json({ status: false, reason: err.message });
-		}
-	});
 
 	// Card test mode API: waits for card and returns UUID
 	// Uses Server-Sent Events (SSE) to keep connection alive and handle disconnect
 	app.get('/wallpad/card/test', (req, res) => {
-		// Check auth token from query param or header
-		const token = req.query.token || req.headers.authorization;
+		// EventSource cannot send custom headers; accept access token via query as fallback.
+		const token = parseBearer(req.headers.authorization) || req.query.token;
 		if (!token) {
 			return res.status(401).json({ status: false, reason: 'Unauthorized' });
 		}
 
 		try {
-			const jwt = require('jsonwebtoken');
-			const config = require('./config');
-			jwt.verify(token, config.webUICreds.jwtSecret);
+			const decoded = jwt.verify(token, config.webUICreds.jwtSecret);
+			if (decoded.typ !== 'access') {
+				return res.status(401).json({ status: false, reason: 'Invalid token' });
+			}
 		} catch (err) {
 			return res.status(401).json({ status: false, reason: 'Invalid token' });
 		}
@@ -280,12 +260,21 @@ app.use(extractToken);
 	app.get('/wallpad/config/public', (req, res) => {
 		try {
 			const cfg = runtimeConfig.getAll();
+			const hasLight = !!logoRoutes.findLogoFile('light');
+			const hasDark = !!logoRoutes.findLogoFile('dark');
 			res.json({
 				status: true,
 				title: cfg.title,
 				adTransitionRate: cfg.adTransitionRate,
-				memberStatusCaption: cfg.memberStatusCaption,
-				arduinoDeviceSerial: cfg.arduinoDeviceSerial || config.arduino.deviceSerial
+				memberStatusCaption: runtimeConfig.getMemberStatusCaption(),
+				arduinoDeviceSerial: config.arduino.deviceSerial,
+				scheduledRefresh: cfg.scheduledRefresh,
+				theme: cfg.theme,
+				logoUrls: {
+					light: hasLight ? '/wallpad/logo/light' : null,
+					dark: hasDark ? '/wallpad/logo/dark' : null,
+				},
+				logoVersion: cfg.logoUpdatedAt || 0
 			});
 		} catch (err) {
 			console.error('[config/public]', err);
@@ -317,10 +306,38 @@ app.use(extractToken);
 
 			const { arduinoDeviceSerial } = req.body;
 			if (arduinoDeviceSerial !== undefined && typeof arduinoDeviceSerial === 'string' && arduinoDeviceSerial.trim()) {
-				runtimeConfig.set('arduinoDeviceSerial', arduinoDeviceSerial.trim());
 				config.arduino.deviceSerial = arduinoDeviceSerial.trim();
+				runtimeConfig.save();
 			}
 
+			const { scheduledRefresh } = req.body;
+			if (scheduledRefresh && typeof scheduledRefresh === 'object') {
+				const enabled = !!scheduledRefresh.enabled;
+				const time = typeof scheduledRefresh.time === 'string' && /^\d{2}:\d{2}$/.test(scheduledRefresh.time)
+					? scheduledRefresh.time
+					: '00:00';
+				config.scheduledRefresh = { enabled, time };
+				runtimeConfig.save();
+				scheduleNextRefresh();
+			}
+
+			const { theme } = req.body;
+			if (theme && typeof theme === 'object') {
+				const mode = ['light', 'dark', 'auto'].includes(theme.mode) ? theme.mode : 'light';
+				const isTime = (v) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
+				const prev = config.theme || {};
+				const next = {
+					mode,
+					darkStart: isTime(theme.darkStart) ? theme.darkStart : (prev.darkStart || '19:00'),
+					darkEnd: isTime(theme.darkEnd) ? theme.darkEnd : (prev.darkEnd || '07:00'),
+				};
+				config.theme = next;
+				runtimeConfig.save();
+				// push to live wallpad screens so toggling doesn't require a reload
+				io.emit('themeUpdate', next);
+			}
+
+			io.emit('reqFrontendRefresh');
 			res.json({ status: true });
 		} catch (err) {
 			console.error('[config/save]', err);

@@ -1,36 +1,34 @@
 /**
  * @brief Authentication middleware for Express routes.
- * @description Extracts JWT tokens from requests and provides route-level auth guard.
+ * @description Extracts the access JWT from the Authorization header
+ *   and sets req.authed accordingly. Body-based token fallback is intentionally
+ *   not supported — all admin clients must send `Authorization: Bearer <token>`.
  * @author Smart-Lab
  */
 
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 
+function parseBearer(headerValue) {
+	if (!headerValue || typeof headerValue !== 'string') return null;
+	const match = headerValue.match(/^Bearer\s+(.+)$/i);
+	return match ? match[1].trim() : null;
+}
+
 /**
- * Global middleware: extracts JWT token from Authorization header (GET)
- * or request body token field (POST), and sets req.authed accordingly.
- * Always calls next() — non-blocking.
+ * Global middleware: reads `Authorization: Bearer <token>` and sets req.authed.
+ * Always calls next() — non-blocking; route-level requireAuth enforces 401.
  */
 function extractToken(req, res, next) {
 	try {
-		const token = (() => {
-			// Always check Authorization header first, then fall back to body token
-			if (req.headers.authorization) {
-				return req.headers.authorization;
-			}
-			if (req.method === 'POST') {
-				return req.body?.token;
-			}
-		})();
-
+		const token = parseBearer(req.headers.authorization);
 		if (!token) {
 			req.authed = false;
 			return next();
 		}
 
-		jwt.verify(token, config.webUICreds.jwtSecret, (err) => {
-			req.authed = !err;
+		jwt.verify(token, config.webUICreds.jwtSecret, (err, decoded) => {
+			req.authed = !err && decoded?.typ === 'access';
 			next();
 		});
 
@@ -53,4 +51,4 @@ function requireAuth(req, res, next) {
 	next();
 }
 
-module.exports = { extractToken, requireAuth };
+module.exports = { extractToken, requireAuth, parseBearer };

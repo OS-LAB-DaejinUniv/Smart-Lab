@@ -52,10 +52,16 @@ const DEFAULTS = {
 		enabled: false,
 		tokens: []
 	},
-	credentials: {
-		username: null,
-		password: null
-	}
+	scheduledRefresh: {
+		enabled: false,
+		time: '00:00'
+	},
+	theme: {
+		mode: 'light',       // 'light' | 'dark' | 'auto'
+		darkStart: '19:00',  // used only when mode === 'auto'
+		darkEnd: '07:00'
+	},
+	logoUpdatedAt: 0
 };
 
 /**
@@ -150,6 +156,18 @@ Object.defineProperties(_cache, {
 				result[key] = this[key];
 			}
 			return result;
+		},
+		enumerable: false
+	},
+	// Always returns a 5-entry status caption: blank/missing slots fall back
+	// to DEFAULTS so the frontend never has to carry its own copy.
+	getMemberStatusCaption: {
+		value: function() {
+			const stored = Array.isArray(this.memberStatusCaption) ? this.memberStatusCaption : [];
+			return DEFAULTS.memberStatusCaption.map((dflt, i) => {
+				const s = stored[i];
+				return (typeof s === 'string' && s.trim()) ? s : dflt;
+			});
 		},
 		enumerable: false
 	}

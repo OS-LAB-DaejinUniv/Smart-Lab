@@ -13,7 +13,7 @@ const ProfileSkeleton = () => {
   return (
     <>
       <div
-        className="flex flex-col justify-between bg-[#f2f4f6] w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.8rem] pb-[.95rem]">
+        className="flex flex-col justify-between bg-[var(--wp-surface)] w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.8rem] pb-[.95rem]">
         <div>
           <div className='flex flex-col'>
             <Skeleton style={{ width: '70px' }}className='mb-1.5' />

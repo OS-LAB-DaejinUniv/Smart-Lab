@@ -40,8 +40,7 @@ module.exports = function (db, io) {
 	// returns member status code caption
 	router.get('/statuscaption', requireAuth, (req, res) => {
 		try {
-			const caption = runtimeConfig.get('memberStatusCaption') || config.memberStatusCaption;
-			res.json({ status: true, caption });
+			res.json({ status: true, caption: runtimeConfig.getMemberStatusCaption() });
 		} catch (err) {
 			console.error('Failed to read memberStatusCaption:', err.toString());
 			res.status(500).json({ status: false, reason: err.message });
@@ -218,7 +217,7 @@ module.exports = function (db, io) {
 
 			// Emit success event so the main display shows a notification popup
 			io.emit('success', new SCEvent({
-				status: statusInt === 1 ? UserStatus.ARRIVAL : UserStatus.LEAVE,
+				status: statusInt === 1 ? UserStatus.CLOCKIN : UserStatus.CLOCKOUT,
 				name: member.name,
 			}));
 

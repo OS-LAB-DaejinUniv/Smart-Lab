@@ -207,7 +207,7 @@ const Advertisement = () => {
     else if (isError) {
         console.error('[Advertisement.js] 1. failed to load ads.');
         return (
-            <div className='flex justify-center items-center bg-[#f2f4f6] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+            <div className='flex justify-center items-center bg-[var(--wp-surface)] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
                 <p>광고 이미지를 불러오지 못했어요</p>
             </div>
         )
@@ -217,7 +217,7 @@ const Advertisement = () => {
     else if ((adList.length == 0) && (isError == false)) {
         console.log('[Advertisement.js] 2. there are no ads to show.');
         return (
-            <div className='flex justify-center items-center bg-[#f2f4f6] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+            <div className='flex justify-center items-center bg-[var(--wp-surface)] font-medium rounded-2xl overflow-hidden w-full h-[9.5rem]'>
                 <p>현재 진행중인 광고가 없어요</p>
             </div>
         )
@@ -226,11 +226,11 @@ const Advertisement = () => {
     // show ad images with visibility toggle (all preloaded)
     else {
         return (
-            <div className='relative bg-[#F5F5F5] rounded-2xl overflow-hidden w-full h-[9.5rem]'>
+            <div className='relative bg-[var(--wp-ad-bg)] rounded-2xl overflow-hidden w-full h-[9.5rem]'>
                 {/* page indicator */}
-                <p className={`absolute z-10 font-semibold text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full px-1.5 right-[.7rem] top-[.6rem] ${isError ? 'hidden' : ''}`}>
+                <p className={`absolute z-10 font-semibold text-sm tabular-nums tracking-wider bg-[var(--wp-surface)] opacity-90 rounded-full px-1.5 right-[.7rem] top-[.6rem] ${isError ? 'hidden' : ''}`}>
                     {currentIndex + 1}
-                    <span style={{ color: '#4E5968' }}>
+                    <span style={{ color: 'var(--wp-fg-secondary)' }}>
                         {`/${adList.length}`}
                     </span>
                 </p>

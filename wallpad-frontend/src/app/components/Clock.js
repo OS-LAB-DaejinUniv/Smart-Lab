@@ -6,7 +6,7 @@
 import React, { useState, useEffect, memo } from 'react';
 
 const Clock = () => {
-  const [clock, setClock] = useState('시계 로드 중');
+  const [clock, setClock] = useState('');
   const [formattedDate, setFormattedDate] = useState('');
 
   useEffect(() => {
@@ -31,7 +31,7 @@ const Clock = () => {
       <p className={'text-xl font-semibold tabular-nums'}>
         {clock}
       </p>
-      <p className={'text-sm font-semibold text-[#6B7684]'}>
+      <p className={'text-sm font-semibold text-[var(--wp-fg-muted)]'}>
         {formattedDate}
       </p>
     </div>

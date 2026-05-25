@@ -7,7 +7,7 @@
  */
 
 const config = require('./config');
-const { WallpadStatus, UserStatus } = require('./WallpadStatus');
+const { WallpadStatus, UserStatus, CardHistoryType } = require('./WallpadStatus');
 const regexps = require('./regexps');
 const SCData = require('./SCData');
 const SCHisory = require('./SCHistory');
@@ -35,6 +35,13 @@ class Wallpad {
         this.status = WallpadStatus.IDLE;
         this.pending = null; // Stores authenticated user data temporarily until processing completes
         this.extension = this.loadExtensions();
+
+        // Timestamp (ms) of the last error emit. A single failed card cycle can
+        // produce multiple downstream protocol errors (NotFoundUser followed by
+        // a session-timeout error from the applet, etc.) and we only want the
+        // first popup to surface to the user.
+        this.lastErrorEmitAt = 0;
+        this.errorDedupeWindowMs = 1000;
 
         this.DEBUG = true;
     }
@@ -80,13 +87,13 @@ class Wallpad {
                 );
 
             // Creates new history entry to be written to the card
-            const hist = new SCHisory(new Date(), +!this.pending.status);
+            const history = new SCHisory(new Date(), +!this.pending.status);
 
             // Writes changes to the card
-            this.arduino.write(hist);
+            this.arduino.write(history);
 
             if (this.DEBUG) {
-                console.log('[Wallpad.authedHandler] Trying to write a new log:', hist);
+                console.log('[Wallpad.authedHandler] Trying to write a new log:', history);
                 console.log('[Wallpad.authedHandler] Waiting response from NFC module..');
             }
 
@@ -193,8 +200,8 @@ class Wallpad {
                 this.io.emit('success',
                     new SCEvent({
                         status: (changedStat === 0) ?
-                            UserStatus.LEAVE :
-                            UserStatus.ARRIVAL,
+                            UserStatus.CLOCKOUT :
+                            UserStatus.CLOCKIN,
                         name: this.pending.name,
                         timesTaken
                     }));
@@ -238,9 +245,14 @@ class Wallpad {
 
             this.status = WallpadStatus.BUSY;
 
-            this.io.emit('error', new SCEvent({ status: eventName }));
-
-            sfx.play(false);
+            const now = Date.now();
+            if (now - this.lastErrorEmitAt < this.errorDedupeWindowMs) {
+                console.log(`[Wallpad.errorHandler] Suppressed follow-up error '${eventName}' (within ${this.errorDedupeWindowMs}ms of previous emit)`);
+            } else {
+                this.io.emit('error', new SCEvent({ status: eventName }));
+                this.lastErrorEmitAt = now;
+                sfx.play(false);
+            }
 
         } catch (err) {
             console.error('[Wallpad.errorHandler]', err);
@@ -303,6 +315,12 @@ class Wallpad {
                 this.cardTestCallback(uuid);
                 this.cardTestCallback = null;
             }
+
+            // Create a new history record to the card.
+            const history = new SCHisory(new Date(), CardHistoryType.SYSTEM_REGISTRATION);
+
+            // Writes changes to the card
+            this.arduino.write(history);
             
             // Reset test mode and status
             this.cardTestMode = false;

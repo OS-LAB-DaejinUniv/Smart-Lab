@@ -12,8 +12,8 @@ const NotifyWindow = ({ type, ...props }) => {
   const title = {
     'notSupported': '카드를 처리하지 못했어요',
     'crypto': '유효하지 않은 카드에요',
-    'arrival': '재실 상태로 변경했어요!',
-    'leave': '퇴근 상태로 변경했어요!',
+    'clockin': '재실 상태로 변경했어요!',
+    'clockout': '퇴근 상태로 변경했어요!',
     'NotFoundUser': '문제가 발생했어요',
     'tmoneyBalance': '교통카드 잔액 조회 성공!',
     'commError': '통신 오류가 발생했어요'
@@ -22,8 +22,8 @@ const NotifyWindow = ({ type, ...props }) => {
   const message = {
     'notSupported': '올바른 카드인지 확인하고 다시 시도해 주세요.',
     'crypto': '애플릿의 상태가 올바르지 않아요. 담당 부원에게 문의해 주세요.',
-    'arrival': '님의 상태를 재실 상태로 변경했어요.',
-    'leave': '님의 상태를 퇴근 상태로 변경했어요.',
+    'clockin': '님의 상태를 재실 상태로 변경했어요.',
+    'clockout': '님의 상태를 퇴근 상태로 변경했어요.',
     'NotFoundUser': '등록되지 않은 스마트카드에요. 담당 부원에게 문의해 주세요.',
     'tmoneyBalance': `티머니 카드의 잔액이 ${props.balance ?
         parseInt(props.balance).toLocaleString('ko-KR') : '0'
@@ -32,8 +32,8 @@ const NotifyWindow = ({ type, ...props }) => {
   };
 
   const timesTakenCaption = {
-    'arrival': '출근',
-    'leave': '퇴근'
+    'clockin': '출근',
+    'clockout': '퇴근'
   }
 
   // Render custom messagebox if provided through props
@@ -41,10 +41,10 @@ const NotifyWindow = ({ type, ...props }) => {
     return (
       <>
         <div
-          className='w-full h-full top-0 fixed z-20 bg-slate-950/50'>
+          className='w-full h-full top-0 fixed z-20 bg-[var(--wp-overlay)]'>
         </div>
         <div
-          className="bg-white w-[486px] !top-[27px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
+          className="bg-[var(--wp-bg)] w-[486px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
           <p
             className="text-xl font-bold"
           >{props.custom.title}</p>
@@ -58,10 +58,10 @@ const NotifyWindow = ({ type, ...props }) => {
   return (
     <>
       <div
-        className='w-full h-full top-0 fixed z-20 bg-slate-950/50'>
+        className='w-full h-full top-0 fixed z-20 bg-[var(--wp-overlay)]'>
       </div>
       <div
-        className="bg-white w-[486px] !top-[27px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
+        className="bg-[var(--wp-bg)] w-[486px] fixed h-auto z-30 rounded-2xl flex flex-col p-5 tracking-tight notify-content">
         <p
           className="text-xl font-bold"
         >{title[type] || title['commError']}</p>
@@ -105,7 +105,7 @@ const NotifyWindow = ({ type, ...props }) => {
 
             if (timesTakenMessage !== null) {
               return (
-                <p className="text-base font-semibold text-[#3182F6] items-center flex">
+                <p className="text-base font-semibold text-[var(--wp-accent)] items-center flex">
                   <Image
                     src={
                       `/emoji/${props.timesTaken.isFirst ?

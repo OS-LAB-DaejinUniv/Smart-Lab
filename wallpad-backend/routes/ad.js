@@ -15,6 +15,50 @@ const writeObjectAsJSON = require('../utils/writeObjectAsJSON');
 const cacheFlush = require('../utils/cacheFlush');
 const checkImageType = require('../utils/checkImageType');
 
+const SUPPORTED_AD_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+
+/**
+ * Reconcile the ad manifest (assets/ad/config.json) against actual files on disk:
+ *   - Drop manifest entries whose image file no longer exists
+ *   - Append orphan files (present on disk but missing from manifest) to the end
+ *   - Preserve admin-defined ordering of surviving entries
+ * Safe to call repeatedly. Idempotent when manifest already matches disk.
+ */
+function reconcileAdManifest() {
+	try {
+		if (!fs.existsSync(config.adImageDir)) {
+			fs.mkdirSync(config.adImageDir, { recursive: true });
+		}
+
+		const diskIds = new Set();
+		for (const name of fs.readdirSync(config.adImageDir)) {
+			const ext = path.extname(name).toLowerCase();
+			if (!SUPPORTED_AD_EXTS.includes(ext)) continue;
+			diskIds.add(path.basename(name, ext));
+		}
+
+		const existing = readJSONFile(config.adImageDir, 'config.json');
+		const previousList = Array.isArray(existing?.list) ? existing.list : [];
+
+		const survivors = previousList.filter(id => diskIds.has(id));
+		const orphans = [...diskIds].filter(id => !survivors.includes(id));
+		const next = [...survivors, ...orphans];
+
+		const removed = previousList.filter(id => !diskIds.has(id));
+		const added = orphans;
+
+		writeObjectAsJSON(config.adImageDir, 'config.json', { list: next });
+
+		if (removed.length || added.length) {
+			console.log(`[reconcileAdManifest] removed=${JSON.stringify(removed)} added=${JSON.stringify(added)} total=${next.length}`);
+		} else {
+			console.log(`[reconcileAdManifest] manifest already in sync (${next.length} images)`);
+		}
+	} catch (err) {
+		console.error('[reconcileAdManifest] failed:', err);
+	}
+}
+
 module.exports = function (io) {
 	const router = express.Router();
 
@@ -176,3 +220,5 @@ module.exports = function (io) {
 
 	return router;
 };
+
+module.exports.reconcileAdManifest = reconcileAdManifest;

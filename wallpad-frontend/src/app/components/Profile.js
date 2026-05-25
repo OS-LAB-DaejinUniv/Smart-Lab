@@ -8,9 +8,9 @@
 import React, { memo, useState } from 'react';
 import Image from 'next/image';
 
-const Profile = ({ name, position, status, emoji, github, isAbsent, uuid }) => { // emoji used as fallback of profile image.
-  const disabledColor = '#6B7684';
-  const enabledColor = '#3182F6';
+const Profile = ({ name, position, status, statusCaption, emoji, github, isAbsent, uuid }) => { // emoji used as fallback of profile image.
+  const disabledColor = 'var(--wp-fg-muted)';
+  const enabledColor = 'var(--wp-accent)';
   const [githubFailed, setGithubFailed] = useState(false);
 
   // `isAbsent` decides whether profile image (or emoji) are shown in grayscale or not.
@@ -19,16 +19,13 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, uuid }) => {
   // index matched as the value of the column `position` on db.
   const positionText = ['부원', '랩장', '수습부원', '지도교수']; // member, leader, probationary member, professor
 
-  // index matched as the value of the column `status` on db.
-  const statusText = ['부재중', '재실', '수업중', '자리비움', '휴학']; // absent, present, in class, in military service
-
   // determine if we should try to load GitHub image
   const useGithub = github && !githubFailed;
 
   return (
     <>
       <div
-        className={`flex flex-col justify-between ${status == 1 ? 'bg-[#e8f3ff]' : 'bg-[#f2f4f6]'} w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.9rem] pb-[.95rem]`}
+        className={`flex flex-col justify-between ${status == 1 ? 'bg-[var(--wp-surface-active)]' : 'bg-[var(--wp-surface)]'} w-[9rem] h-[7.3rem] rounded-2xl px-[1.1rem] pt-[.9rem] pb-[.95rem]`}
       >
 
         <div>
@@ -48,7 +45,7 @@ const Profile = ({ name, position, status, emoji, github, isAbsent, uuid }) => {
             <p
               className={`text-sm leading-[1.4] ${isAbsent ? '' : 'font-semibold'}`}
               style={{ color: (isAbsent) ? disabledColor : enabledColor }}>
-              {statusText[status]}</p>
+              {statusCaption?.[status]}</p>
           </div>
         </div>
 

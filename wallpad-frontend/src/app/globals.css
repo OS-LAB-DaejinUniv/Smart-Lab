@@ -297,6 +297,12 @@ img {
 	bottom: 0;
 }
 
+/* Tone skeletons down on the dark theme so they don't glow against
+ * --wp-surface (the library's built-in base color is a light grey). */
+html[data-theme="dark"] .react-loading-skeleton {
+	opacity: 0.3;
+}
+
 .noti-clock {
 	width: 1.1rem !important;
 	height: 1.1rem !important;

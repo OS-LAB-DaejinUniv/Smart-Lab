@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { requireAuth } = require('../middleware/auth');
+const errorResponse = require('../utils/errorResponse');
+const scheduleBackendRestart = require('../utils/scheduleBackendRestart');
 
 module.exports = function () {
 	const router = express.Router();
@@ -22,7 +24,7 @@ module.exports = function () {
 			res.json({ status: true, files });
 		} catch (err) {
 			console.error('[extension/list]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -48,7 +50,7 @@ module.exports = function () {
 			res.json({ status: true, filename, content });
 		} catch (err) {
 			console.error('[extension/read]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -70,10 +72,13 @@ module.exports = function () {
 
 			const filePath = path.join(extDir, filename);
 			fs.writeFileSync(filePath, content, 'utf-8');
-			res.json({ status: true });
+			// Extensions are loaded once at process start and cached by
+			// Node's require — restart so the new/edited file is picked up.
+			res.json({ status: true, restarting: true });
+			scheduleBackendRestart(`extension saved: ${filename}`);
 		} catch (err) {
 			console.error('[extension/save]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -105,10 +110,11 @@ module.exports = function () {
 			}
 
 			fs.renameSync(oldPath, newPath);
-			res.json({ status: true });
+			res.json({ status: true, restarting: true });
+			scheduleBackendRestart(`extension renamed: ${oldFilename} -> ${newFilename}`);
 		} catch (err) {
 			console.error('[extension/rename]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -133,10 +139,11 @@ module.exports = function () {
 			}
 
 			fs.unlinkSync(filePath);
-			res.json({ status: true });
+			res.json({ status: true, restarting: true });
+			scheduleBackendRestart(`extension deleted: ${filename}`);
 		} catch (err) {
 			console.error('[extension/delete]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

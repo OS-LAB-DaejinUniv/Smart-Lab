@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const runtimeConfig = require('../runtimeConfig');
 const { requireAuth, parseBearer } = require('../middleware/auth');
+const errorResponse = require('../utils/errorResponse');
 
 const router = express.Router();
 
@@ -76,7 +77,7 @@ router.post('/preauth', (req, res) => {
 		res.json({ status: true, accessToken, refreshToken });
 	} catch (err) {
 		console.error('[preauth] failed:', err);
-		res.status(500).json({ status: false });
+		res.status(500).json(errorResponse(err));
 	}
 });
 
@@ -88,15 +89,14 @@ router.post('/signin', (req, res) => {
 		const accessip = req.ip;
 
 		if ((username !== corrUsername) || (password !== corrPassword)) {
-			res.status(401);
-			return res.json({ status: false });
+			return res.status(401).json({ status: false, error: 'AuthError', reason: 'InvalidCredentials' });
 		}
 
 		const { accessToken, refreshToken } = issueTokenPair(username, accessip);
 		res.json({ status: true, accessToken, refreshToken });
 	} catch (err) {
 		console.error('[mgmtSignin] Sign-in failed:', err);
-		res.status(500).json({ status: false });
+		res.status(500).json(errorResponse(err));
 	}
 });
 
@@ -155,7 +155,7 @@ router.post('/password/change', requireAuth, (req, res) => {
 		res.json({ status: true });
 	} catch (err) {
 		console.error('[password/change] Error:', err);
-		res.status(500).json({ status: false });
+		res.status(500).json(errorResponse(err));
 	}
 });
 

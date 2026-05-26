@@ -22,6 +22,7 @@ import { ChevronDown, ChevronUp, UserPlus, CreditCard, Nfc } from 'lucide-react'
 
 import { backendPort } from '../_lib/backend';
 import { authFetch, getAccessToken, refreshAccessToken } from '../_lib/auth';
+import { formatBackendError, formatThrownError } from '../_lib/error';
 
 export default function MemberSection() {
     let [memberList, setMemberList] = useState([]);
@@ -44,6 +45,10 @@ export default function MemberSection() {
 
     let [cardError, setCardError] = useState('');
     let [addMemberError, setAddMemberError] = useState('');
+    let [nameError, setNameError] = useState('');
+    let [nicknameError, setNicknameError] = useState('');
+    let [positionError, setPositionError] = useState('');
+    let [deleteError, setDeleteError] = useState('');
 
     let [addMemberName, setAddMemberName] = useState('');
     let [addMemberCard, setAddMemberCard] = useState('');
@@ -130,9 +135,9 @@ export default function MemberSection() {
         eventSource.addEventListener('error', (e) => {
             try {
                 const data = JSON.parse(e.data);
-                setCardReadError(data.reason || '카드 읽기에 실패했습니다.');
+                setCardReadError(data.reason || '카드 읽기에 실패했어요.');
             } catch {
-                setCardReadError('카드 읽기에 실패했습니다.');
+                setCardReadError('카드 읽기에 실패했어요.');
             }
             setCardReadStatus('error');
             eventSource.close();
@@ -142,7 +147,7 @@ export default function MemberSection() {
         eventSource.onerror = () => {
             if (cardReadEventSourceRef.current) {
                 setCardReadStatus('error');
-                setCardReadError('서버와의 연결이 끊어졌습니다.');
+                setCardReadError('서버와의 연결이 끊어졌어요.');
                 eventSource.close();
                 cardReadEventSourceRef.current = null;
             }
@@ -211,7 +216,7 @@ export default function MemberSection() {
         const skipCard = addMemberSkipCard && addMemberPosition === '2';
 
         if (!addMemberName || !addMemberPosition || (!skipCard && !addMemberCard)) {
-            setAddMemberError('모든 필수 항목을 입력하세요.');
+            setAddMemberError('모든 필수 항목을 입력해 주세요..');
             return;
         }
         if (!skipCard && !validateCardNumber(addMemberCard)) {
@@ -246,12 +251,12 @@ export default function MemberSection() {
                     setAddMemberSkipCard(false);
                     setAddMemberError('');
                 } else {
-                    setAddMemberError(body.reason || '구성원 추가에 실패했습니다.');
+                    setAddMemberError(formatBackendError(body, '구성원 추가에 실패했어요.'));
                 }
             })
             .catch(error => {
                 console.error('Failed to add new member:', error);
-                setAddMemberError('구성원 추가에 실패했습니다.');
+                setAddMemberError(formatThrownError(error, '구성원 추가에 실패했어요.'));
             });
     };
 
@@ -267,12 +272,18 @@ export default function MemberSection() {
             .then(res => res.json())
             .then(body => {
                 if (body.status) { fetchMembetList(); return true; }
+                // Backend rejects same-status requests silently — refetch the
+                // list so the dropdown snaps back to the real current value,
+                // and do *not* show a toast or log an error.
+                if (body.error === 'NoChange') { fetchMembetList(); return false; }
                 console.error('Status change failed:', body.reason);
                 return false;
             })
             .catch(err => { console.error('Failed to change status:', err); return false; });
     };
 
+    // Returns `{ ok, error }` so callers can surface the server-side exception
+    // (name + message) inside their dialog rather than failing silently.
     const updateMemberField = (uuid, field, value) => {
         const url = new URL(`/wallpad/management/member/${uuid}/update`, `http://${location.hostname}:${backendPort}`);
         return authFetch(url, {
@@ -282,16 +293,23 @@ export default function MemberSection() {
         })
             .then(res => res.json())
             .then(body => {
-                if (body.status) { fetchMembetList(); return true; }
+                if (body.status) { fetchMembetList(); return { ok: true }; }
                 console.error('Update failed:', body.reason);
-                return false;
+                return { ok: false, error: formatBackendError(body, '저장에 실패했어요.') };
             })
-            .catch(err => { console.error(`Failed to update ${field}:`, err); return false; });
+            .catch(err => {
+                console.error(`Failed to update ${field}:`, err);
+                return { ok: false, error: formatThrownError(err, '저장에 실패했어요.') };
+            });
     };
 
     const updateName = () => {
         if (!currentMember) return;
-        updateMemberField(currentMember.uuid, 'name', newName).then(ok => { if (ok) setIsOpenNameDialog(false); });
+        setNameError('');
+        updateMemberField(currentMember.uuid, 'name', newName).then(({ ok, error }) => {
+            if (ok) setIsOpenNameDialog(false);
+            else setNameError(error);
+        });
     };
 
     const updateCard = () => {
@@ -300,46 +318,57 @@ export default function MemberSection() {
             return;
         }
         if (!currentMember) return;
+        setCardError('');
         updateMemberField(currentMember.uuid, 'uuid', newCard)
-            .then(ok => {
+            .then(({ ok, error }) => {
                 if (ok) {
                     setIsOpenCardDialog(false);
                     resetCardReadState();
                     setCardError('');
+                } else {
+                    setCardError(error);
                 }
             });
     };
 
     const saveProfile = async () => {
         if (!currentMember) return;
-        let allOk = true;
+        setNicknameError('');
+        let firstError = '';
 
         const githubValue = newNickname || null;
         if (githubValue !== (currentMember.github || null)) {
-            const ok = await updateMemberField(currentMember.uuid, 'github', githubValue);
-            if (!ok) allOk = false;
+            const { ok, error } = await updateMemberField(currentMember.uuid, 'github', githubValue);
+            if (!ok && !firstError) firstError = error;
         }
 
         if (selectedEmoji) {
             const emojiName = selectedEmoji.replace('.png', '');
-            const ok = await updateMemberField(currentMember.uuid, 'emoji', emojiName);
-            if (!ok) allOk = false;
+            const { ok, error } = await updateMemberField(currentMember.uuid, 'emoji', emojiName);
+            if (!ok && !firstError) firstError = error;
         }
 
-        if (allOk) {
+        if (!firstError) {
             setIsOpenNicknameDialog(false);
             setSelectedEmoji(null);
+        } else {
+            setNicknameError(firstError);
         }
     };
 
     const updatePosition = () => {
         if (!currentMember) return;
+        setPositionError('');
         updateMemberField(currentMember.uuid, 'position', parseInt(newPosition))
-            .then(ok => { if (ok) setIsOpenPositionDialog(false); });
+            .then(({ ok, error }) => {
+                if (ok) setIsOpenPositionDialog(false);
+                else setPositionError(error);
+            });
     };
 
     const deleteMember = () => {
         if (!currentMember) return;
+        setDeleteError('');
         const url = new URL(`/wallpad/management/member/${currentMember.uuid}/delete`, `http://${location.hostname}:${backendPort}`);
         authFetch(url, { method: 'POST' })
             .then(res => res.json())
@@ -348,9 +377,14 @@ export default function MemberSection() {
                     fetchMembetList();
                     setIsOpenDeleteDialog(false);
                     setCurrentMember(null);
+                } else {
+                    setDeleteError(formatBackendError(body, '삭제에 실패했어요.'));
                 }
             })
-            .catch(err => console.error('Failed to delete member:', err));
+            .catch(err => {
+                console.error('Failed to delete member:', err);
+                setDeleteError(formatThrownError(err, '삭제에 실패했어요.'));
+            });
     };
 
     const moveMember = (idx, direction) => {
@@ -497,7 +531,7 @@ export default function MemberSection() {
                                                             setIsOpenCardDialog(true);
                                                         }}>
                                                         <CreditCard className="w-3 h-3 mr-0.5" />
-                                                        카드
+                                                        ID카드
                                                     </Button>
                                                     <Button className="h-6 w-12 rounded-md text-sm bg-transparent hover:bg-red-500 text-red-500 hover:text-white"
                                                         onClick={() => {
@@ -544,14 +578,16 @@ export default function MemberSection() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>구성원 삭제</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {currentMember ? `${currentMember.name}님을 정말 삭제할까요? 구성원을 삭제하면 해당 구성원의 출퇴근 기록도 함께 삭제됩니다.` : ''}
+                            {currentMember ? `${currentMember.name}님을 정말 삭제할까요? 구성원을 삭제하면 해당 구성원의 출퇴근 기록도 함께 삭제돼요.` : ''}
                         </AlertDialogDescription>
+                        {deleteError && <p className="text-red-500 text-sm mt-2">{deleteError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                             onClick={() => {
                                 setIsOpenDeleteDialog(false);
+                                setDeleteError('');
                                 setCurrentMember(null);
                             }}>취소</AlertDialogCancel>
                         <AlertDialogAction
@@ -624,11 +660,11 @@ export default function MemberSection() {
                                                 {cardReadStatus === 'waiting' && cardReadTarget === 'add' ? '읽는 중...' : 'ID 카드 읽기'}
                                             </Button>
                                             {cardReadStatus === 'waiting' && cardReadTarget === 'add' && (
-                                                <p className="text-xs text-muted-foreground">카드가 인식되면 일련번호가 자동으로 채워집니다.</p>
+                                                <p className="text-xs text-muted-foreground">카드가 인식되면 일련번호가 자동으로 채워져요.</p>
                                             )}
                                         </div>
                                         {cardReadStatus === 'error' && cardReadTarget === 'add' && (
-                                            <p className="text-xs text-red-500 mt-1">{cardReadError || '카드 읽기에 실패했습니다.'}</p>
+                                            <p className="text-xs text-red-500 mt-1">{cardReadError || '카드 읽기에 실패했어요.'}</p>
                                         )}
                                     </>
                                 )}
@@ -662,11 +698,12 @@ export default function MemberSection() {
                         <AlertDialogTitle>이름 변경</AlertDialogTitle>
                         <AlertDialogDescription>새로운 이름을 입력하세요.</AlertDialogDescription>
                         <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-2" />
+                        {nameError && <p className="text-red-500 text-sm mt-2">{nameError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenNameDialog(false)}>취소</AlertDialogCancel>
+                            onClick={() => { setIsOpenNameDialog(false); setNameError(''); }}>취소</AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
                             onClick={updateName}>변경</AlertDialogAction>
@@ -704,6 +741,7 @@ export default function MemberSection() {
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                             onClick={() => {
                                 resetCardReadState();
+                                setCardError('');
                                 setIsOpenCardDialog(false);
                             }}>취소</AlertDialogCancel>
                         <AlertDialogAction
@@ -729,11 +767,14 @@ export default function MemberSection() {
                             <AlertDialogAction
                                 className="font-semibold h-9 bg-red-50 text-red-600 hover:bg-red-100"
                                 onClick={() => {
+                                    setNicknameError('');
                                     updateMemberField(currentMember.uuid, 'github', null)
-                                        .then(ok => {
+                                        .then(({ ok, error }) => {
                                             if (ok) {
                                                 setNewNickname('');
                                                 setIsOpenNicknameDialog(false);
+                                            } else {
+                                                setNicknameError(error);
                                             }
                                         });
                                 }}>삭제하고 이모지 사용</AlertDialogAction>
@@ -757,11 +798,12 @@ export default function MemberSection() {
                                     />
                                 ))}
                         </div>
+                        {nicknameError && <p className="text-red-500 text-sm mt-2">{nicknameError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => { setIsOpenNicknameDialog(false); setSelectedEmoji(null); }}>취소</AlertDialogCancel>
+                            onClick={() => { setIsOpenNicknameDialog(false); setNicknameError(''); setSelectedEmoji(null); }}>취소</AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
                             onClick={saveProfile}>저장</AlertDialogAction>
@@ -784,11 +826,12 @@ export default function MemberSection() {
                                 <SelectItem value="2">수습부원</SelectItem>
                             </SelectContent>
                         </Select>
+                        {positionError && <p className="text-red-500 text-sm mt-2">{positionError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenPositionDialog(false)}>취소</AlertDialogCancel>
+                            onClick={() => { setIsOpenPositionDialog(false); setPositionError(''); }}>취소</AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
                             onClick={updatePosition}>변경</AlertDialogAction>

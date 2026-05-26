@@ -13,6 +13,7 @@ const config = require('../config');
 const runtimeConfig = require('../runtimeConfig');
 const { requireAuth } = require('../middleware/auth');
 const checkImageType = require('../utils/checkImageType');
+const errorResponse = require('../utils/errorResponse');
 
 const SUPPORTED_LOGO_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const LOGO_DIR = path.resolve(__dirname, '..', 'assets');
@@ -54,7 +55,7 @@ module.exports = function (io) {
 		res.sendFile(filePath, (err) => {
 			if (err && !res.headersSent) {
 				console.error('[logo.get] sendFile error:', err);
-				res.status(500).json({ status: false, reason: err.message });
+				res.status(500).json(errorResponse(err));
 			}
 		});
 	});
@@ -66,7 +67,7 @@ module.exports = function (io) {
 		res.sendFile(filePath, (err) => {
 			if (err && !res.headersSent) {
 				console.error('[logo.get] sendFile error:', err);
-				res.status(500).json({ status: false, reason: err.message });
+				res.status(500).json(errorResponse(err));
 			}
 		});
 	});
@@ -94,7 +95,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('[logo.upload] failed:', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

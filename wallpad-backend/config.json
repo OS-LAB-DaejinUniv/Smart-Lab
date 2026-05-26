@@ -34,7 +34,14 @@
     "휴학"
   ],
   "memberDisplayOrder": [
-    "18D4CA8C670145CEA6348E951D55F592"
+    "33CB8FD365F1A17DE263BAE30135DC70",
+    "DC5EE636A2E342672D38C3C14BCB5569",
+    "CE1EF2D8E1587D4BAA36E83C15DD86AD",
+    "F5D86659F2473A2EFF1912F2B5C5654D",
+    "054F814EF99B8A56444CACA3CEAA9202",
+    "6BDDBFABFD07D8B4DD1912D73109DED6",
+    "1456B7EF03A8145EAE81348AAAA2BB81",
+    "C03995336511A67E561FDE1A81B647EB"
   ],
   "adTransitionRate": 8000,
   "taskScriptDir": "./extensions/",
@@ -64,5 +71,8 @@
     "darkStart": "17:00",
     "darkEnd": "08:00"
   },
-  "logoUpdatedAt": 1779688188035
+  "logoUpdatedAt": 1779688188035,
+  "webhookUrls": [
+    "http://portal.oslab/wallpad_webhook.php"
+  ]
 }

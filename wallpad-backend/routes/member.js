@@ -4,11 +4,10 @@
  */
 
 const express = require('express');
-const config = require('../config');
 const runtimeConfig = require('../runtimeConfig');
 const { requireAuth } = require('../middleware/auth');
-const SCEvent = require('../SCEvent');
-const { UserStatus } = require('../WallpadStatus');
+const errorResponse = require('../utils/errorResponse');
+const applyStatusChange = require('../utils/applyStatusChange');
 
 module.exports = function (db, io) {
 	const router = express.Router();
@@ -33,7 +32,7 @@ module.exports = function (db, io) {
 			res.json({ status: true, rows: ordered });
 		} catch (err) {
 			console.error('Failed to retrieve member list:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -43,7 +42,7 @@ module.exports = function (db, io) {
 			res.json({ status: true, caption: runtimeConfig.getMemberStatusCaption() });
 		} catch (err) {
 			console.error('Failed to read memberStatusCaption:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -65,7 +64,7 @@ module.exports = function (db, io) {
 			res.json(ordered);
 		} catch (err) {
 			console.error('[statusall]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -77,7 +76,7 @@ module.exports = function (db, io) {
 			res.json({ status: true, type: row.type, at: row.at });
 		} catch (err) {
 			console.error('Failed to retrieve last event:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -89,7 +88,7 @@ module.exports = function (db, io) {
 			res.json({ status: true, row });
 		} catch (err) {
 			console.error('Failed to retrieve member information:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -120,7 +119,7 @@ module.exports = function (db, io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to add member:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -170,7 +169,7 @@ module.exports = function (db, io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to update member:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -189,11 +188,15 @@ module.exports = function (db, io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to delete member:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
 	// change member status (like card tag: updates DB status + inserts history + emits socket)
+	// Returns { status: false, error: 'NoChange' } with HTTP 200 when the
+	// requested status equals the member's current status — the admin UI
+	// treats this as a signal to silently refetch the list rather than
+	// surface a toast.
 	router.post('/:UUID(*)/status', requireAuth, (req, res) => {
 		try {
 			const uuid = req.params.UUID;
@@ -208,26 +211,19 @@ module.exports = function (db, io) {
 				throw new Error('InvalidStatus');
 			}
 
-			// Same as card scan: update member status + insert history record
-			db.updateUserStatus(uuid, statusInt, new Date());
+			const result = applyStatusChange(
+				{ db, io, runtimeConfig },
+				{ uuid, newStatus: statusInt, source: 'admin' }
+			);
 
-			// Get member info for the notification
-			const member = db.selectMemberByUUID(uuid);
-			const statusCaption = runtimeConfig.get('memberStatusCaption') || config.memberStatusCaption;
-
-			// Emit success event so the main display shows a notification popup
-			io.emit('success', new SCEvent({
-				status: statusInt === 1 ? UserStatus.CLOCKIN : UserStatus.CLOCKOUT,
-				name: member.name,
-			}));
-
-			// Notify frontend main display to refresh member list
-			// io.emit('reqFrontendRefresh');
+			if (!result.changed) {
+				return res.json({ status: false, error: 'NoChange', reason: 'SameStatus' });
+			}
 
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to change member status:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -245,7 +241,7 @@ module.exports = function (db, io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to reorder members:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

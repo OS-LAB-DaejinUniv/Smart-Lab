@@ -146,27 +146,40 @@ class DB {
         }
     }
 
+    /**
+     * Atomically transition a member's status. Returns `{ changed: false }`
+     * when the incoming `status` already matches the stored one — caller is
+     * expected to short-circuit downstream side effects in that case
+     * (no history row, no notification, no webhook, no extensions).
+     *
+     * The guard lives in the SQL (`AND status <> ?`) so concurrent requests
+     * cannot both pass a SELECT-then-UPDATE check and write twice.
+     */
     updateUserStatus(uuid, status, at) {
         try {
-            if (!at instanceof Date) {
+            if (!(at instanceof Date)) {
                 throw new Error('`at` must be a instance of Date.');
             }
 
             const updateStatusRes = (this.db)
                 .prepare(query.updateStatus)
-                .run(status, uuid);
+                .run(status, uuid, status);
+
+            if (updateStatusRes.changes === 0) {
+                console.log(`[DB.updateUserStatus] No-op for ${uuid}: already at status ${status}`);
+                return { changed: false };
+            }
 
             const insHistoryRes = (this.db)
                 .prepare(query.addHistory)
                 .run(uuid, status, at.getTime());
 
-            if (updateStatusRes.changes == 1 == insHistoryRes.changes) {
-                console.log(`[DB.updateUserStatus] Updated. \'status\' of ${uuid} to ${status} at ${at}`);
-                return true;
-
-            } else {
-                throw new Error();
+            if (insHistoryRes.changes !== 1) {
+                throw new Error('HistoryInsertFailed');
             }
+
+            console.log(`[DB.updateUserStatus] Updated. \'status\' of ${uuid} to ${status} at ${at}`);
+            return { changed: true };
 
         } catch (err) {
             console.error('[DB.updateUserStatus]', err);

@@ -7,7 +7,8 @@
  */
 
 const config = require('./config');
-const { WallpadStatus, UserStatus, CardHistoryType } = require('./WallpadStatus');
+const runtimeConfig = require('./runtimeConfig');
+const { WallpadStatus, CardHistoryType } = require('./WallpadStatus');
 const regexps = require('./regexps');
 const SCData = require('./SCData');
 const SCHisory = require('./SCHistory');
@@ -17,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const Extension = require('./Extension');
 const { Worker } = require('worker_threads');
+const applyStatusChange = require('./utils/applyStatusChange');
 
 class Wallpad {
     static isCreated = false;
@@ -126,12 +128,23 @@ class Wallpad {
                     .then(() => resolve(false));
             }, config.taskScriptTimeout);
 
-            worker.on('message', result => {
-                console.log(`[Wallpad.runExtensionWorker] [${result.status ? 'FINISH' : 'STOP'}]`, extensionName);
+            worker.on('message', msg => {
+                // Extensions can call ctx.notify('...') multiple times during
+                // their run to append rows to the wallpad's NotifyWindow.
+                // These arrive as separate messages and must NOT terminate
+                // the worker — only the final 'done' message does that.
+                if (msg && msg.type === 'notifyAppend') {
+                    if (typeof msg.message === 'string' && msg.message.trim()) {
+                        this.io.emit('notifyAppend', { message: msg.message });
+                    }
+                    return;
+                }
+
+                console.log(`[Wallpad.runExtensionWorker] [${msg && msg.status ? 'FINISH' : 'STOP'}]`, extensionName);
 
                 // Terminate the worker and resolve the promise
                 worker.terminate()
-                    .then(() => resolve(result.status));
+                    .then(() => resolve(msg && msg.status));
             });
 
             worker.on('exit', () => {
@@ -179,55 +192,53 @@ class Wallpad {
 
     #done() {
         try {
-            if (this.pending) {
-                // Convert status between 1 and 0 using '+!' operator
-                const changedStat = +!this.pending.status;
-
-                // [DB Task 1/2] Update user's work status in database
-                this.db.updateUserStatus(this.pending.uuid, changedStat, new Date());
-
-                // [DB Task 2/2] Calculate time duration based on status
-                const timesTaken = (() => {
-                    if (changedStat == 1) {
-                        return this.db.getHoursToReturn(this.pending.uuid);
-
-                    } else if (changedStat == 0) {
-                        return this.db.getTodayWorkingHours(this.pending.uuid);
-                    }
-                })();
-
-                // Emit status change event to frontend with user info and time data
-                this.io.emit('success',
-                    new SCEvent({
-                        status: (changedStat === 0) ?
-                            UserStatus.CLOCKOUT :
-                            UserStatus.CLOCKIN,
-                        name: this.pending.name,
-                        timesTaken
-                    }));
-
-                // Asynchronously launch tasks based on user's card preferences
-                setTimeout((user, memberList) => {
-                    this.#triggerRunTasks({
-                        name: user.name,
-                        position: user.position,
-                        uuid: user.uuid,
-                        extra: user.extra
-                    },
-                        changedStat,
-                        memberList
-                    );
-                }, 0, Object.assign({}, this.pending), this.db.selectMembers());
-
-                console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
-                    + `pos.: ${this.pending.position}, `
-                    + `stat.: ${this.pending.status} → ${changedStat}`);
-
-                sfx.play(true);
-
-            } else {
+            if (!this.pending) {
                 throw new Error('[Wallpad.done] Called illegally.');
             }
+
+            // Convert status between 1 and 0 using '+!' operator
+            const changedStat = +!this.pending.status;
+
+            // Compute timeelapsed-style stats before applying — these go
+            // into the SCEvent payload so the wallpad display can show
+            // "X시간만에 출근/퇴근했어요".
+            const timesTaken = (changedStat === 1)
+                ? this.db.getHoursToReturn(this.pending.uuid)
+                : this.db.getTodayWorkingHours(this.pending.uuid);
+
+            const result = applyStatusChange(
+                { db: this.db, io: this.io, runtimeConfig },
+                {
+                    uuid: this.pending.uuid,
+                    newStatus: changedStat,
+                    source: 'card',
+                    eventExtras: { timesTaken },
+                }
+            );
+
+            if (!result.changed) {
+                console.log(`[Wallpad.done] No-op: ${this.pending.name} already at status ${changedStat}`);
+                return;
+            }
+
+            // Asynchronously launch tasks based on user's card preferences
+            setTimeout((user, memberList) => {
+                this.#triggerRunTasks({
+                    name: user.name,
+                    position: user.position,
+                    uuid: user.uuid,
+                    extra: user.extra
+                },
+                    changedStat,
+                    memberList
+                );
+            }, 0, Object.assign({}, this.pending), this.db.selectMembers());
+
+            console.log(`[Wallpad.done] ${this.pending.name} ${this.pending.uuid} `
+                + `pos.: ${this.pending.position}, `
+                + `stat.: ${this.pending.status} → ${changedStat}`);
+
+            sfx.play(true);
 
         } catch (err) {
             console.error('[Wallpad.done]', err);

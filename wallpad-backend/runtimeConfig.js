@@ -61,7 +61,11 @@ const DEFAULTS = {
 		darkStart: '19:00',  // used only when mode === 'auto'
 		darkEnd: '07:00'
 	},
-	logoUpdatedAt: 0
+	logoUpdatedAt: 0,
+	// Outbound webhook fan-out for member status changes. Each entry is a
+	// full URL; the backend POSTs JSON to every URL whenever a status
+	// actually changes (no-op same-status requests are not delivered).
+	webhookUrls: []
 };
 
 /**

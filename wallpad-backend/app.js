@@ -16,6 +16,7 @@ const path = require('path');
 const cors = require('./middleware/cors');
 const { extractToken, parseBearer } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
+const errorResponse = require('./utils/errorResponse');
 
 // route modules
 const adRoutes = require('./routes/ad');
@@ -230,7 +231,7 @@ app.use(extractToken);
 			});
 		} catch (err) {
 			console.error('Failed to retrieve card scan history:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -252,7 +253,7 @@ app.use(extractToken);
 			res.json(ordered);
 		} catch (err) {
 			console.error('[statusall]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -274,11 +275,12 @@ app.use(extractToken);
 					light: hasLight ? '/wallpad/logo/light' : null,
 					dark: hasDark ? '/wallpad/logo/dark' : null,
 				},
-				logoVersion: cfg.logoUpdatedAt || 0
+				logoVersion: cfg.logoUpdatedAt || 0,
+				webhookUrls: Array.isArray(cfg.webhookUrls) ? cfg.webhookUrls : []
 			});
 		} catch (err) {
 			console.error('[config/public]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -337,11 +339,44 @@ app.use(extractToken);
 				io.emit('themeUpdate', next);
 			}
 
+			// webhookUrls — validate each entry with `new URL()`. Reject the
+			// whole save on the first invalid one so admins notice typos
+			// instead of silently dropping them.
+			const { webhookUrls } = req.body;
+			if (webhookUrls !== undefined) {
+				if (!Array.isArray(webhookUrls)) {
+					return res.status(400).json({
+						status: false,
+						error: 'InvalidPayload',
+						reason: 'webhookUrls must be an array'
+					});
+				}
+				const cleaned = [];
+				for (let i = 0; i < webhookUrls.length; i++) {
+					const raw = webhookUrls[i];
+					if (typeof raw !== 'string') continue;
+					const trimmed = raw.trim();
+					if (!trimmed) continue;
+					try {
+						// eslint-disable-next-line no-new
+						new URL(trimmed);
+					} catch {
+						return res.status(400).json({
+							status: false,
+							error: 'InvalidWebhookUrl',
+							reason: `${i + 1}번째 URL이 올바르지 않아요: ${trimmed}`
+						});
+					}
+					cleaned.push(trimmed);
+				}
+				runtimeConfig.set('webhookUrls', cleaned);
+			}
+
 			io.emit('reqFrontendRefresh');
 			res.json({ status: true });
 		} catch (err) {
 			console.error('[config/save]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -354,7 +389,7 @@ app.use(extractToken);
 			});
 		} catch (err) {
 			console.error('/history/latest', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

@@ -12,8 +12,9 @@ import { FileCode, FilePlus, Pencil, Check, X } from 'lucide-react';
 
 import { backendPort } from '../_lib/backend';
 import { authFetch } from '../_lib/auth';
+import { formatBackendError, formatThrownError } from '../_lib/error';
 
-const DEFAULT_TEMPLATE = `const Extension = require("../Extension");\nmodule.exports = new Extension({\n    enabled: true,\n    activatedStatus: 1,\n    activatedIndex: '*'\n},\n    (userInfo, changedTo, memberList) => {\n     // 이곳에 이벤트 리스너 함수를 구현하세요.\n    }\n);\n`;
+const DEFAULT_TEMPLATE = `const Extension = require("../Extension");\nmodule.exports = new Extension({\n    enabled: true,\n    activatedStatus: 1,\n    activatedIndex: '*'\n},\n    (userInfo, changedTo, memberList, ctx) => {\n     // 이곳에 이벤트 처리 동작을 구현하세요.\n     ctx.notify('처리 결과를 알림 화면에 표시할 수도 있어요.');\n    }\n);\n`;
 
 export default function ExtensionSection() {
     const [files, setFiles] = useState([]);
@@ -27,6 +28,7 @@ export default function ExtensionSection() {
     const [newFileName, setNewFileName] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [renamingFile, setRenamingFile] = useState(null);
     const [renameValue, setRenameValue] = useState('');
 
@@ -84,7 +86,9 @@ export default function ExtensionSection() {
             .then(res => res.json())
             .then(body => {
                 if (body.status) {
-                    setStatusMsg('저장되었어요.');
+                    setStatusMsg(body.restarting
+                        ? '저장되었어요. 변경 사항을 적용하기 위해 백엔드를 재시작하고 있어요...'
+                        : '저장되었어요.');
                     setOriginalCode(code);
                     if (isNewFile) {
                         setIsNewFile(false);
@@ -93,10 +97,10 @@ export default function ExtensionSection() {
                         fetchFileList();
                     }
                 } else {
-                    setStatusMsg('저장에 실패했어요: ' + (body.reason || ''));
+                    setStatusMsg('저장에 실패했어요: ' + formatBackendError(body, ''));
                 }
             })
-            .catch(() => setStatusMsg('저장에 실패했어요.'))
+            .catch((err) => setStatusMsg('저장에 실패했어요: ' + formatThrownError(err, '')))
             .finally(() => setSaving(false));
     }
 
@@ -104,6 +108,7 @@ export default function ExtensionSection() {
         if (!selectedFile) return;
         setDeleting(true);
         setStatusMsg(null);
+        setDeleteError('');
         const url = new URL('/wallpad/management/extension/delete', baseURL);
         authFetch(url, {
             method: 'POST',
@@ -113,19 +118,21 @@ export default function ExtensionSection() {
             .then(res => res.json())
             .then(body => {
                 if (body.status) {
-                    setStatusMsg('삭제되었어요.');
+                    setStatusMsg(body.restarting
+                        ? '삭제되었어요. 변경 사항을 적용하기 위해 백엔드를 재시작하고 있어요...'
+                        : '삭제되었어요.');
                     setSelectedFile(null);
                     setCode('');
                     setOriginalCode('');
                     fetchFileList();
+                    setShowDeleteDialog(false);
                 } else {
-                    setStatusMsg('삭제에 실패했어요.');
+                    setDeleteError(formatBackendError(body, '삭제에 실패했어요.'));
                 }
             })
-            .catch(() => setStatusMsg('삭제에 실패했어요.'))
+            .catch((err) => setDeleteError(formatThrownError(err, '삭제에 실패했어요.')))
             .finally(() => {
                 setDeleting(false);
-                setShowDeleteDialog(false);
             });
     }
 
@@ -164,14 +171,16 @@ export default function ExtensionSection() {
             .then(res => res.json())
             .then(body => {
                 if (body.status) {
-                    setStatusMsg('파일 이름이 변경되었어요.');
+                    setStatusMsg(body.restarting
+                        ? '파일 이름이 변경되었어요. 변경 사항을 적용하기 위해 백엔드를 재시작하고 있어요...'
+                        : '파일 이름이 변경되었어요.');
                     if (selectedFile === oldFilename) setSelectedFile(newFilename);
                     fetchFileList();
                 } else {
-                    setStatusMsg('이름 변경에 실패했어요: ' + (body.reason || ''));
+                    setStatusMsg('이름 변경에 실패했어요: ' + formatBackendError(body, ''));
                 }
             })
-            .catch(() => setStatusMsg('이름 변경에 실패했어요.'))
+            .catch((err) => setStatusMsg('이름 변경에 실패했어요: ' + formatThrownError(err, '')))
             .finally(() => setRenamingFile(null));
     }
 
@@ -275,18 +284,18 @@ export default function ExtensionSection() {
                         <div className="flex gap-3 items-center">
                             {!isNewFile && selectedFile && (
                                 <button
-                                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                                    className="text-sm text-red-500 hover:underline disabled:opacity-50"
                                     onClick={() => setShowDeleteDialog(true)}
                                 >
                                     삭제
                                 </button>
                             )}
                             <button
-                                className="text-xs text-black hover:underline disabled:opacity-50"
+                                className="text-sm text-black hover:underline disabled:opacity-50"
                                 onClick={saveFile}
                                 disabled={saving || (isNewFile && !newFileName)}
                             >
-                                {saving ? '저장 중...' : '저장'}
+                                {saving ? '저장 중' : '저장'}
                             </button>
                         </div>
                     </div>
@@ -320,13 +329,14 @@ export default function ExtensionSection() {
                 </p>
             )}
 
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialog open={showDeleteDialog} onOpenChange={(open) => { setShowDeleteDialog(open); if (!open) setDeleteError(''); }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>파일 삭제</AlertDialogTitle>
                         <AlertDialogDescription>
                             <strong>{selectedFile}</strong> 파일을 삭제하시겠어요? 삭제된 파일은 복구할 수 없어요.
                         </AlertDialogDescription>
+                        {deleteError && <p className="text-red-500 text-sm mt-2">{deleteError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>

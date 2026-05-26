@@ -17,6 +17,7 @@ import { Upload, ChevronRight } from 'lucide-react';
 
 import { backendPort } from '../_lib/backend';
 import { authFetch, clearTokens } from '../_lib/auth';
+import { formatBackendError, formatThrownError } from '../_lib/error';
 
 // Single-row helper: label + optional description on the left, control(s) on
 // the right, with its own border-bottom so rows compose without a parent
@@ -66,6 +67,7 @@ export default function ConfigSection() {
     const [themeDarkEnd, setThemeDarkEnd] = useState('07:00');
     const [logoSrcs, setLogoSrcs] = useState({ light: null, dark: null });
     const [logoUploadingVariant, setLogoUploadingVariant] = useState(null);
+    const [webhookUrlsText, setWebhookUrlsText] = useState('');
     const logoLightFileInputRef = useRef(null);
     const logoDarkFileInputRef = useRef(null);
 
@@ -106,6 +108,7 @@ export default function ConfigSection() {
                     } else {
                         setLogoSrcs({ light: null, dark: null });
                     }
+                    setWebhookUrlsText(Array.isArray(body.webhookUrls) ? body.webhookUrls.join('\n') : '');
                 }
                 setLoading(false);
             })
@@ -134,22 +137,23 @@ export default function ConfigSection() {
                     mode: themeMode,
                     darkStart: /^\d{2}:\d{2}$/.test(themeDarkStart) ? themeDarkStart : '19:00',
                     darkEnd: /^\d{2}:\d{2}$/.test(themeDarkEnd) ? themeDarkEnd : '07:00',
-                }
+                },
+                webhookUrls: webhookUrlsText.split('\n').map(s => s.trim()).filter(Boolean)
             })
         })
             .then(res => res.json())
             .then(body => {
                 setSaving(false);
                 if (body.status) {
-                    toast.success('설정이 저장되었습니다.');
+                    toast.success('설정을 저장했어요.');
                 } else {
-                    toast.error('설정 저장에 실패했습니다.');
+                    toast.error('설정 저장에 실패했어요.', { description: body.reason || undefined });
                 }
             })
             .catch(err => {
                 setSaving(false);
                 console.error('Failed to save config:', err);
-                toast.error('설정 저장에 실패했습니다.');
+                toast.error('설정 저장에 실패했어요.');
             });
     }
 
@@ -158,7 +162,7 @@ export default function ConfigSection() {
 
         if (!currentPassword) { setPasswordError('현재 비밀번호를 입력해주세요.'); return; }
         if (!newUsername && !newPassword) { setPasswordError('새 아이디 또는 새 비밀번호를 입력해주세요.'); return; }
-        if (newPassword && newPassword !== newPasswordConfirm) { setPasswordError('새 비밀번호가 일치하지 않습니다.'); return; }
+        if (newPassword && newPassword !== newPasswordConfirm) { setPasswordError('새 비밀번호 확인이 일치하지 않아요.'); return; }
 
         setPasswordSaving(true);
         const url = new URL('/wallpad/management/password/change', `http://${location.hostname}:${backendPort}`);
@@ -175,24 +179,24 @@ export default function ConfigSection() {
             .then(body => {
                 setPasswordSaving(false);
                 if (body.status) {
-                    toast.success('계정 정보가 변경되었습니다. 다시 로그인해주세요.');
+                    toast.success('계정 정보가 변경되어서 다시 로그인해야 해요.');
                     clearTokens();
                     window.location.reload();
                 } else {
-                    setPasswordError(body.message || '계정 변경에 실패했습니다.');
+                    setPasswordError(formatBackendError(body, '계정 변경에 실패했어요.'));
                 }
             })
             .catch(err => {
                 setPasswordSaving(false);
                 console.error('Failed to change password:', err);
-                setPasswordError('계정 변경에 실패했습니다.');
+                setPasswordError(formatThrownError(err, '계정 변경에 실패했어요.'));
             });
     }
 
     function uploadLogo(variant, file) {
         if (!file) return;
         if (!/^image\/(png|jpe?g|gif|webp)$/.test(file.type)) {
-            toast.error('지원하지 않는 이미지 형식입니다.', { description: 'PNG / JPG / GIF / WEBP만 업로드할 수 있어요.' });
+            toast.error('지원하지 않는 이미지 형식이에요.', { description: 'PNG / JPG / GIF / WEBP만 업로드할 수 있어요.' });
             return;
         }
         const inputRef = variant === 'dark' ? logoDarkFileInputRef : logoLightFileInputRef;
@@ -209,14 +213,14 @@ export default function ConfigSection() {
                     fetchConfig();
                     toast.success(`${variant === 'dark' ? '다크' : '라이트'} 로고가 업데이트되었어요.`);
                 } else {
-                    toast.error('로고 업로드에 실패했습니다.');
+                    toast.error('로고 업로드에 실패했어요.');
                 }
             })
             .catch(err => {
                 setLogoUploadingVariant(null);
                 if (inputRef.current) inputRef.current.value = '';
                 console.error('Failed to upload logo:', err);
-                toast.error('로고 업로드에 실패했습니다.');
+                toast.error('로고 업로드에 실패했어요.');
             });
     }
 
@@ -243,7 +247,7 @@ export default function ConfigSection() {
             <div className="pt-2">
                 <h2 className="text-base font-semibold mb-1">출석부 화면 로고</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                    메인 화면 상단에 384×75 영역으로 표시됩니다.
+                    메인 화면 상단에 384×75 크기로 표시돼요.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {logoSlots.map(({ variant, label, previewBg, emptyColor }) => {
@@ -427,6 +431,25 @@ export default function ConfigSection() {
                     />
                 </SettingsRow>
             )}
+
+            <SectionHeading>외부 시스템 연동</SectionHeading>
+
+            <div className="flex flex-col py-4 gap-3 border-b last:border-b-0">
+                <div>
+                    <Label htmlFor="webhook-urls" className="text-sm font-medium">Webhook 등록</Label>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                        출석부 상태가 변동될 때 지정한 URL로 변동된 상태를 전송해요. 개행으로 구분하여 입력해 주세요.
+                    </p>
+                </div>
+                <textarea
+                    id="webhook-urls"
+                    value={webhookUrlsText}
+                    onChange={(e) => setWebhookUrlsText(e.target.value)}
+                    placeholder={'http://example.com/hook\nhttp://portal.oslab/notify'}
+                    rows={4}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                />
+            </div>
 
             <SectionHeading>계정</SectionHeading>
 

@@ -48,7 +48,17 @@ export default function Home() {
   const [statusCaption, setStatusCaption] = useState([]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [activeScheme, setActiveScheme] = useState('light');
+  // Extra rows appended to the currently-visible NotifyWindow by extensions
+  // (via `ctx.notify(...)` in their handlers). Cleared on every new 'success'
+  // event so messages from a previous notification never bleed into the next.
+  const [appendedMessages, setAppendedMessages] = useState([]);
   const notifyTimeoutRef = useRef(null);
+  // Original duration of the active notification — used to extend the
+  // auto-dismiss timer when an append arrives mid-display.
+  const notifyDurationRef = useRef(0);
+  // Latest deadline timestamp, mirrored in a ref so socket handlers can
+  // compare against it without having to be re-bound when state changes.
+  const notifyLeftTimeRef = useRef(0);
   let socket = null;
 
   // Fetch the runtime-configurable title and logo from the backend. Both are
@@ -137,12 +147,15 @@ export default function Home() {
   }));
 
   const showNotification = (duration) => {
-    setNotifyLeftTime(
-      new Date().getTime() + duration
-    );
+    notifyDurationRef.current = duration;
+    const deadline = new Date().getTime() + duration;
+    notifyLeftTimeRef.current = deadline;
+    setNotifyLeftTime(deadline);
   };
 
   useEffect(() => {
+    notifyLeftTimeRef.current = notifyLeftTime;
+
     if (notifyTimeoutRef.current) {
       clearTimeout(notifyTimeoutRef.current);
       notifyTimeoutRef.current = null;
@@ -158,7 +171,8 @@ export default function Home() {
 
     notifyTimeoutRef.current = setTimeout(() => {
       setNotifyLeftTime(0);
-    }, remaining);
+      setAppendedMessages([]);
+    }, remaining);    
 
     return () => {
       if (notifyTimeoutRef.current) {
@@ -207,14 +221,35 @@ export default function Home() {
     socket.on('success', data => {
       console.log(`[SCEvent] duration: ${data.duration}, name: ${data.name}, status: ${data.status}`);
       socket.emit('getMemberStat');
+      setAppendedMessages([]);
       setNotifyStatus(data);
       showNotification(data.duration);
     });
 
     socket.on('error', error => {
       console.error(`[SCEvent] duration: ${error.duration}, name: ${error.name}, status: ${error.status}`);
+      setAppendedMessages([]);
       setNotifyStatus(error);
       showNotification(error.duration);
+    });
+
+    // Extension → ctx.notify(...) → backend forwards as `notifyAppend`.
+    // Each message becomes an extra row inside the current NotifyWindow,
+    // and the auto-dismiss timer is bumped to `now + originalDuration` so
+    // the appended content has time to actually be read.
+    socket.on('notifyAppend', payload => {
+      const message = payload && typeof payload.message === 'string' ? payload.message : '';
+      if (!message.trim()) return;
+      // Drop appends arriving after the notification has already been
+      // dismissed — otherwise a slow extension would resurrect stale UI.
+      if (notifyLeftTimeRef.current <= Date.now()) return;
+      setAppendedMessages(prev => [...prev, message]);
+      const duration = notifyDurationRef.current || 0;
+      if (duration > 0) {
+        const newDeadline = Date.now() + duration;
+        notifyLeftTimeRef.current = newDeadline;
+        setNotifyLeftTime(newDeadline);
+      }
     });
 
     socket.on('getMemberStatResp', userData => {
@@ -239,8 +274,6 @@ export default function Home() {
   }, []);
   /* ========== end socket.io setup ========== */
 
-  // clock is now handled by the <Clock /> component to avoid full Home re-renders.
-
   return (
     <>
       {(() => {
@@ -253,6 +286,7 @@ export default function Home() {
               timesTaken={notifyStatus.timesTaken}
               balance={notifyStatus.balance || null}
               custom={notifyStatus.custom || null}
+              appendedMessages={appendedMessages}
             />
           );
       })()}

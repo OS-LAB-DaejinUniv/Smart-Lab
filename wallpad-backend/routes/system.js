@@ -10,6 +10,8 @@ const config = require('../config');
 const { requireAuth } = require('../middleware/auth');
 const cacheFlush = require('../utils/cacheFlush');
 const SCEvent = require('../SCEvent');
+const errorResponse = require('../utils/errorResponse');
+const scheduleBackendRestart = require('../utils/scheduleBackendRestart');
 
 module.exports = function (io) {
 	const router = express.Router();
@@ -25,7 +27,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to flush next cache:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -36,7 +38,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to execute reboot command:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -44,13 +46,10 @@ module.exports = function (io) {
 	router.post('/restart-backend', requireAuth, (req, res) => {
 		try {
 			res.json({ status: true });
-			// delay slightly so the response is sent before process restarts
-			setTimeout(() => {
-				execSync(config.pm2RestartCommand);
-			}, 500);
+			scheduleBackendRestart('admin requested /restart-backend');
 		} catch (err) {
 			console.error('Failed to execute PM2 restart command:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -61,7 +60,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('Failed to execute poweroff command:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -73,7 +72,7 @@ module.exports = function (io) {
 			res.json({ status: true, temp });
 		} catch (err) {
 			console.error('Failed to read CPU temperature:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -84,7 +83,7 @@ module.exports = function (io) {
 			res.json({ status: true, uptime });
 		} catch (err) {
 			console.error('Failed to retrieve system uptime:', err.toString());
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -97,7 +96,7 @@ module.exports = function (io) {
 			});
 		} catch (err) {
 			console.error('[status]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -109,7 +108,7 @@ module.exports = function (io) {
 			res.json({ status: true, list });
 		} catch (err) {
 			console.error('[emoji]', err);
-			res.status(500).json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -134,7 +133,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error('[message]', err);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

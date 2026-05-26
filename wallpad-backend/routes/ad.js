@@ -14,6 +14,7 @@ const readJSONFile = require('../utils/readJSONFile');
 const writeObjectAsJSON = require('../utils/writeObjectAsJSON');
 const cacheFlush = require('../utils/cacheFlush');
 const checkImageType = require('../utils/checkImageType');
+const errorResponse = require('../utils/errorResponse');
 
 const SUPPORTED_AD_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 
@@ -84,7 +85,7 @@ module.exports = function (io) {
 			res.json(adConfig);
 		} catch (err) {
 			console.error(`[getAdConfig] Error: ${err}`);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -119,7 +120,7 @@ module.exports = function (io) {
 		res.sendFile(filePath, (err) => {
 			if (err && !res.headersSent) {
 				console.error(`[getImageById] sendFile error: ${err}`);
-				res.status(500).json({ status: false, reason: err.message });
+				return res.status(500).json(errorResponse(err));
 			}
 			console.log(`[getAdById] Successfully served image: ${path.basename(filePath)}`);
 		});
@@ -144,7 +145,7 @@ module.exports = function (io) {
 
 		} catch (err) {
 			console.error(`[uploadNewAd] ${err}`);
-			res.json({ status: false });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -176,7 +177,7 @@ module.exports = function (io) {
 			
 		} catch (err) {
 			console.error(`[reorderAdList] Error: ${err}`);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 
@@ -214,7 +215,7 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error(`[deleteAdImage] Error: ${err}`);
-			res.status(500).json({ status: false, reason: err.message });
+			res.status(500).json(errorResponse(err));
 		}
 	});
 

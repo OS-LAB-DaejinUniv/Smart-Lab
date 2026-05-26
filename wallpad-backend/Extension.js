@@ -16,10 +16,6 @@ class Extension {
             throw new Error(message);
         }
     }
-
-    displayMessage(message) {
-        //
-    }
 }
 
 module.exports = Extension;

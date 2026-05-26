@@ -14,6 +14,7 @@ import { Thermometer, Clock, MonitorCheck, Power, RotateCcw } from 'lucide-react
 import delay from '../../utils/delay';
 import { backendPort } from '../_lib/backend';
 import { authFetch } from '../_lib/auth';
+import { formatBackendError, formatThrownError } from '../_lib/error';
 
 export default function SystemSection() {
     let [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
@@ -26,6 +27,9 @@ export default function SystemSection() {
     const poweroffButtonRef = useRef(null);
     const restartBackendButtonRef = useRef(null);
     let [isOpenRestartBackendDialog, setIsOpenRestartBackendDialog] = useState(false);
+    let [rebootError, setRebootError] = useState('');
+    let [poweroffError, setPoweroffError] = useState('');
+    let [restartBackendError, setRestartBackendError] = useState('');
 
     useEffect(() => {
         wallpadTemperature();
@@ -72,6 +76,7 @@ export default function SystemSection() {
     }
 
     function wallpadReboot() {
+        setRebootError('');
         const refreshURL = new URL('/wallpad/reboot', `http://${location.hostname}:${backendPort}`);
         authFetch(refreshURL, { method: 'POST' })
             .then(res => res.json())
@@ -81,19 +86,15 @@ export default function SystemSection() {
                     rebootButtonRef.current.innerText = '재시작 요청함';
                     return;
                 }
-                throw new Error();
+                setRebootError(formatBackendError(body, '재시작에 실패했어요.'));
             })
-            .catch(() => {
-                rebootButtonRef.current.disabled = true;
-                rebootButtonRef.current.innerText = '문제가 생겼어요';
-                delay(1000).then(() => {
-                    rebootButtonRef.current.disabled = false;
-                    rebootButtonRef.current.innerText = '시스템 재시작';
-                });
+            .catch((err) => {
+                setRebootError(formatThrownError(err, '재시작에 실패했어요.'));
             });
     }
 
     function wallpadPoweroff() {
+        setPoweroffError('');
         const poweroffURL = new URL('/wallpad/poweroff', `http://${location.hostname}:${backendPort}`);
         authFetch(poweroffURL, { method: 'POST' })
             .then(res => res.json())
@@ -103,19 +104,15 @@ export default function SystemSection() {
                     poweroffButtonRef.current.innerText = '종료 요청함';
                     return;
                 }
-                throw new Error();
+                setPoweroffError(formatBackendError(body, '종료에 실패했어요.'));
             })
-            .catch(() => {
-                poweroffButtonRef.current.disabled = true;
-                poweroffButtonRef.current.innerText = '문제가 생겼어요';
-                delay(1000).then(() => {
-                    poweroffButtonRef.current.disabled = false;
-                    poweroffButtonRef.current.innerText = '시스템 종료';
-                });
+            .catch((err) => {
+                setPoweroffError(formatThrownError(err, '종료에 실패했어요.'));
             });
     }
 
     function wallpadRestartBackend() {
+        setRestartBackendError('');
         const restartURL = new URL('/wallpad/restart-backend', `http://${location.hostname}:${backendPort}`);
         authFetch(restartURL, { method: 'POST' })
             .then(res => res.json())
@@ -124,15 +121,10 @@ export default function SystemSection() {
                     setIsOpenRestartBackendDialog(false);
                     return;
                 }
-                throw new Error();
+                setRestartBackendError(formatBackendError(body, '백엔드 재시작에 실패했어요.'));
             })
-            .catch(() => {
-                restartBackendButtonRef.current.disabled = true;
-                restartBackendButtonRef.current.innerText = '문제가 생겼어요';
-                delay(1000).then(() => {
-                    restartBackendButtonRef.current.disabled = false;
-                    restartBackendButtonRef.current.innerText = '백엔드 재시작';
-                });
+            .catch((err) => {
+                setRestartBackendError(formatThrownError(err, '백엔드 재시작에 실패했어요.'));
             });
     }
 
@@ -272,18 +264,19 @@ export default function SystemSection() {
                         <AlertDialogDescription>
                             재시작이 완료될 때까지 출근부 화면이 표시되지 않을 수 있어요.
                         </AlertDialogDescription>
+                        {restartBackendError && <p className="text-red-500 text-sm mt-2">{restartBackendError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenRestartBackendDialog(false)}>
+                            onClick={() => { setIsOpenRestartBackendDialog(false); setRestartBackendError(''); }}>
                             취소
                         </AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold hover:bg-red-600 hover:text-white h-9 bg-gray-100 text-black"
                             onClick={wallpadRestartBackend}
                             ref={restartBackendButtonRef}>
-                            백엔드 재시작
+                            서비스 재시작
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -296,11 +289,12 @@ export default function SystemSection() {
                             시스템을 재시작하려고 해요.<br />
                             웹 콘솔은 재시작이 완료되어야 다시 접속할 수 있어요.
                         </AlertDialogDescription>
+                        {rebootError && <p className="text-red-500 text-sm mt-2">{rebootError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenRebootDialog(false)}>
+                            onClick={() => { setIsOpenRebootDialog(false); setRebootError(''); }}>
                             취소
                         </AlertDialogCancel>
                         <AlertDialogAction
@@ -321,11 +315,12 @@ export default function SystemSection() {
                             시스템을 종료하려고 해요.<br />
                             전원을 분리하고 다시 연결하기 전까지 자동으로 재시작되지 않아요.
                         </AlertDialogDescription>
+                        {poweroffError && <p className="text-red-500 text-sm mt-2">{poweroffError}</p>}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
-                            onClick={() => setIsOpenPoweroffDialog(false)}>
+                            onClick={() => { setIsOpenPoweroffDialog(false); setPoweroffError(''); }}>
                             취소
                         </AlertDialogCancel>
                         <AlertDialogAction

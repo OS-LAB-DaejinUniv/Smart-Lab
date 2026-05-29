@@ -663,7 +663,7 @@ export default function ConfigSection() {
 
             <SettingsRow
                 label="서비스 재시작"
-                description="labtop 서비스를 재시작합니다."
+                description="출석부 서비스를 재시작할 수 있어요."
             >
                 <Button
                     variant="ghost"
@@ -678,7 +678,7 @@ export default function ConfigSection() {
 
             <SettingsRow
                 label="시스템 재시작"
-                description="OS를 재시작합니다."
+                description="OS를 재시작할 수 있어요."
             >
                 <Button
                     variant="ghost"
@@ -695,7 +695,7 @@ export default function ConfigSection() {
 
             <SettingsRow
                 label="관리자 로그인 계정 변경"
-                description="아이디 또는 비밀번호를 변경합니다."
+                description="아이디 또는 비밀번호를 변경할 수 있어요."
             >
                 <Button
                     variant="ghost"

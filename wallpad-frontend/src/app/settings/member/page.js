@@ -59,7 +59,51 @@ export default function MemberSection() {
     let [githubFailedMembers, setGithubFailedMembers] = useState(new Set());
 
     let [isOpenNameDialog, setIsOpenNameDialog] = useState(false);
-    let [isOpenCardDialog, setIsOpenCardDialog] = useState(false);
+    let [isOpenCardDialog, setIsOpenCardDialog] = useState({ open: false, name: '', uuid: '' });
+    let [cardShineActive, setCardShineActive] = useState(false);
+    let cardShineTimerRef = useRef(null);
+
+    function triggerCardShine() {
+        if (cardShineTimerRef.current) clearTimeout(cardShineTimerRef.current);
+        setCardShineActive(true);
+        cardShineTimerRef.current = setTimeout(() => {
+            setCardShineActive(false);
+            cardShineTimerRef.current = null;
+        }, 900);
+    }
+
+    // Tracks which member rows should currently render their 상태 cell with the
+    // blue card-shine effect — re-flashes whenever a member's status changes
+    // (admin dropdown edit, card scan, or socket-broadcast remote change).
+    let [shiningStatusUUIDs, setShiningStatusUUIDs] = useState(() => new Set());
+    let prevStatusMapRef = useRef(new Map());
+    let statusShineTimersRef = useRef(new Map());
+
+    // Called from every close path (cancel button, successful submit). Wipes the
+    // typed UUID, error text, card-reader SSE state, and the shine timer/flag so
+    // re-opening the modal for another member never inherits stale form state.
+    function resetCardDialogForm() {
+        setNewCard('');
+        setCardError('');
+        setCardShineActive(false);
+        if (cardShineTimerRef.current) {
+            clearTimeout(cardShineTimerRef.current);
+            cardShineTimerRef.current = null;
+        }
+        resetCardReadState();
+    }
+
+    // Same idea for the Add Member modal — clears name/card/nickname/position,
+    // skip-card toggle, error message, and the shared card-reader SSE state.
+    function resetAddMemberForm() {
+        setAddMemberName('');
+        setAddMemberCard('');
+        setAddMemberNickname('');
+        setAddMemberPosition('');
+        setAddMemberSkipCard(false);
+        setAddMemberError('');
+        resetCardReadState();
+    }
     let [isOpenNicknameDialog, setIsOpenNicknameDialog] = useState(false);
     let [isOpenPositionDialog, setIsOpenPositionDialog] = useState(false);
 
@@ -153,6 +197,7 @@ export default function MemberSection() {
                 } else if (target === 'update') {
                     setNewCard(data.uuid);
                     setCardError('');
+                    triggerCardShine();
                 }
             }
             eventSource.close();
@@ -208,6 +253,50 @@ export default function MemberSection() {
     useEffect(() => {
         const tickId = setInterval(() => setNowTick(Date.now()), 30_000);
         return () => clearInterval(tickId);
+    }, []);
+
+    // Diff effect: whenever memberList refreshes, flag every member whose
+    // .status changed since the previous snapshot so its 상태 cell renders the
+    // blue shine. Skipped on the very first snapshot (prev map empty) so the
+    // initial fetch doesn't make every row shine.
+    useEffect(() => {
+        const newMap = new Map();
+        const changed = [];
+        memberList.forEach(m => {
+            if (!m || !m.uuid || m.isSkeleton) return;
+            newMap.set(m.uuid, m.status);
+            const prev = prevStatusMapRef.current.get(m.uuid);
+            if (prev !== undefined && prev !== m.status) changed.push(m.uuid);
+        });
+        prevStatusMapRef.current = newMap;
+
+        if (changed.length === 0) return;
+
+        setShiningStatusUUIDs(prev => {
+            const next = new Set(prev);
+            changed.forEach(uuid => next.add(uuid));
+            return next;
+        });
+        changed.forEach(uuid => {
+            const existing = statusShineTimersRef.current.get(uuid);
+            if (existing) clearTimeout(existing);
+            const timer = setTimeout(() => {
+                setShiningStatusUUIDs(prev => {
+                    const next = new Set(prev);
+                    next.delete(uuid);
+                    return next;
+                });
+                statusShineTimersRef.current.delete(uuid);
+            }, 900);
+            statusShineTimersRef.current.set(uuid, timer);
+        });
+    }, [memberList]);
+
+    useEffect(() => {
+        return () => {
+            statusShineTimersRef.current.forEach(t => clearTimeout(t));
+            statusShineTimersRef.current.clear();
+        };
     }, []);
 
     useEffect(() => {
@@ -275,13 +364,7 @@ export default function MemberSection() {
                 if (body.status) {
                     fetchMembetList();
                     setIsOpenAddMemberDialog(false);
-                    resetCardReadState();
-                    setAddMemberName('');
-                    setAddMemberCard('');
-                    setAddMemberNickname('');
-                    setAddMemberPosition('');
-                    setAddMemberSkipCard(false);
-                    setAddMemberError('');
+                    resetAddMemberForm();
                 } else {
                     setAddMemberError(formatBackendError(body, '구성원 추가에 실패했어요.'));
                 }
@@ -354,9 +437,8 @@ export default function MemberSection() {
         updateMemberField(currentMember.uuid, 'uuid', newCard)
             .then(({ ok, error }) => {
                 if (ok) {
-                    setIsOpenCardDialog(false);
-                    resetCardReadState();
-                    setCardError('');
+                    setIsOpenCardDialog({ open: false, name: '', uuid: '' });
+                    resetCardDialogForm();
                 } else {
                     setCardError(error);
                 }
@@ -527,7 +609,7 @@ export default function MemberSection() {
                                             </TableCell>
                                             <TableCell className="h-1 p-0 align-middle text-left">
                                                 <div className={`h-full text-sm px-2.5 ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
-                                                    <Button className="h-6 w-[3.5rem] rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
+                                                    <Button className={`h-6 w-[3.5rem] rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600 transition-colors duration-500 ${shiningStatusUUIDs.has(member.uuid) ? 'card-shine-anim' : ''}`}
                                                         onClick={() => {
                                                             setCurrentMember(member);
                                                             setNewName(member.name);
@@ -541,7 +623,7 @@ export default function MemberSection() {
                                                 <div className={`h-full text-sm ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button className="h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600">
+                                                            <Button className={`h-6 w-14 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600 transition-colors duration-500 ${shiningStatusUUIDs.has(member.uuid) ? 'card-shine-anim' : ''}`}>
                                                                 {statusCaption[member.status]}
                                                             </Button>
                                                         </DropdownMenuTrigger>
@@ -560,7 +642,7 @@ export default function MemberSection() {
                                             <TableCell className="h-1 p-0 align-middle text-left">
                                                 <div className={`h-full text-sm pl-3 pr-2 ${bgColor} flex items-center justify-start font-medium text-gray-500 whitespace-nowrap`}>
                                                     <Tooltip delayDuration={0}>
-                                                        <TooltipTrigger className="text-gray-600 cursor-default tabular-nums">
+                                                        <TooltipTrigger className={`text-gray-600 cursor-default tabular-nums transition-colors duration-500 ${shiningStatusUUIDs.has(member.uuid) ? 'card-shine-anim' : ''}`}>
                                                             {formatRelativeTime(member.updated, nowTick)}
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top">
@@ -574,10 +656,15 @@ export default function MemberSection() {
                                                     <Button className="h-6 w-12 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
                                                         onClick={() => {
                                                             setCurrentMember(member);
-                                                            setNewCard('');
+                                                            setNewCard(member.uuid);
                                                             setCardError('');
                                                             resetCardReadState();
-                                                            setIsOpenCardDialog(true);
+                                                            setCardShineActive(false);
+                                                            if (cardShineTimerRef.current) {
+                                                                clearTimeout(cardShineTimerRef.current);
+                                                                cardShineTimerRef.current = null;
+                                                            }
+                                                            setIsOpenCardDialog({ open: true, name: member.name, uuid: member.uuid });
                                                         }}>
                                                         <CreditCard className="w-3 h-3 mr-0.5" />
                                                         ID카드
@@ -695,7 +782,10 @@ export default function MemberSection() {
                                     </p>
                                 ) : (
                                     <>
-                                        <Input value={addMemberCard} onChange={(e) => setAddMemberCard(e.target.value)} className="mt-1.5" placeholder="eID 카드 일련번호" fontFamily="monospace" />
+                                        <Input
+                                            maxlength={32}
+                                            value={addMemberCard}
+                                            onChange={(e) => setAddMemberCard(e.target.value)} className="mt-1.5" placeholder="eID 카드 일련번호" fontFamily="monospace" />
                                         <div className="flex items-center gap-2 mt-2">
                                             <Button
                                                 type="button"
@@ -726,10 +816,8 @@ export default function MemberSection() {
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                             onClick={() => {
-                                resetCardReadState();
                                 setIsOpenAddMemberDialog(false);
-                                setAddMemberSkipCard(false);
-                                setAddMemberError('');
+                                resetAddMemberForm();
                             }}>취소</AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"
@@ -757,15 +845,22 @@ export default function MemberSection() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={isOpenCardDialog}>
+            <AlertDialog open={isOpenCardDialog.open}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>ID 카드 재등록</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {isOpenCardDialog.name ? `${isOpenCardDialog.name}님의 ` : ''}ID 카드 재등록
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             새 ID 카드의 일련번호를 입력해 주세요.<br />
                             아래의 'ID 카드 읽기' 버튼으로 자동 등록하거나 직접 입력할 수도 있어요.
                         </AlertDialogDescription>
-                        <Input value={newCard} onChange={(e) => setNewCard(e.target.value)} className="mt-2" />
+                        <Input
+                            maxlength={32}
+                            value={newCard}
+                            onChange={(e) => setNewCard(e.target.value)}
+                            className={`mt-2 transition-colors duration-500 ${cardShineActive ? 'card-shine-anim' : ''}`}
+                        />
                         <div className="flex items-center gap-2 mt-2">
                             <Button
                                 type="button"
@@ -786,9 +881,8 @@ export default function MemberSection() {
                         <AlertDialogCancel
                             className="font-semibold border-0 h-9 bg-gray-100 hover:bg-gray-200"
                             onClick={() => {
-                                resetCardReadState();
-                                setCardError('');
-                                setIsOpenCardDialog(false);
+                                setIsOpenCardDialog({ open: false, name: '', uuid: '' });
+                                resetCardDialogForm();
                             }}>취소</AlertDialogCancel>
                         <AlertDialogAction
                             className="font-semibold h-9 bg-gray-100 text-black hover:bg-gray-200"

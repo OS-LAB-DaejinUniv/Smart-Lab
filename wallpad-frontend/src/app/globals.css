@@ -285,6 +285,14 @@ img {
 	transform-origin: top center;
 }
 
+/* Briefly tint the card-UUID Input blue right after a successful scan.
+ * Paired with Tailwind's `transition-colors` on the Input so removing the
+ * class fades the color back to the default smoothly. */
+.card-shine-anim {
+	color: rgb(59 130 246);
+	-webkit-text-fill-color: rgb(59 130 246);
+}
+
 .profile-image {
 	width: 2.5rem !important;
 	height: 2.5rem;

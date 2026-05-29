@@ -34,15 +34,20 @@ const Advertisement = () => {
                 const res = await fetch(new URL('/wallpad/ad/list', backendURL));
                 const json = await res.json();
 
-                console.log('fetched ad image list', json.list);
+                // Skip ads marked hidden by the admin — they stay on disk but
+                // are pulled from the carousel until the admin re-enables them.
+                const hidden = new Set(Array.isArray(json.hidden) ? json.hidden : []);
+                const visibleIds = (Array.isArray(json.list) ? json.list : []).filter(id => !hidden.has(id));
+
+                console.log('fetched ad image list', visibleIds, `(hidden: ${hidden.size})`);
                 if (objectUrlsRef.current.length > 0) {
                     objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
                     objectUrlsRef.current = [];
                 }
 
-                if (json.list.length > 0) {
+                if (visibleIds.length > 0) {
                     const preloadResults = await Promise.allSettled(
-                        json.list.map(async (adId) => {
+                        visibleIds.map(async (adId) => {
                             const adRes = await fetch(new URL(`/wallpad/ad/${adId}`, backendURL));
                             if (!adRes.ok) {
                                 throw new Error(`failed to preload ad image: ${adId}`);

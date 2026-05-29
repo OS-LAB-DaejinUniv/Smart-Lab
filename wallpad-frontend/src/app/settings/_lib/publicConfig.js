@@ -1,6 +1,6 @@
 import { backendOrigin } from './backend';
 
-export const DEFAULT_TITLE = 'OS Lab Smart Wallpad';
+export const DEFAULT_TITLE = 'labtop';
 
 export async function fetchPublicConfig() {
     try {

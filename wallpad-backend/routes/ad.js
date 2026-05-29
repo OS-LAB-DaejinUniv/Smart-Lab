@@ -40,24 +40,40 @@ function reconcileAdManifest() {
 
 		const existing = readJSONFile(config.adImageDir, 'config.json');
 		const previousList = Array.isArray(existing?.list) ? existing.list : [];
+		const previousHidden = Array.isArray(existing?.hidden) ? existing.hidden : [];
 
 		const survivors = previousList.filter(id => diskIds.has(id));
 		const orphans = [...diskIds].filter(id => !survivors.includes(id));
 		const next = [...survivors, ...orphans];
 
+		// Drop hidden entries whose image file no longer exists; preserve the rest.
+		const nextHidden = previousHidden.filter(id => diskIds.has(id));
+
 		const removed = previousList.filter(id => !diskIds.has(id));
 		const added = orphans;
 
-		writeObjectAsJSON(config.adImageDir, 'config.json', { list: next });
+		writeObjectAsJSON(config.adImageDir, 'config.json', { list: next, hidden: nextHidden });
 
 		if (removed.length || added.length) {
-			console.log(`[reconcileAdManifest] removed=${JSON.stringify(removed)} added=${JSON.stringify(added)} total=${next.length}`);
+			console.log(`[reconcileAdManifest] removed=${JSON.stringify(removed)} added=${JSON.stringify(added)} total=${next.length} hidden=${nextHidden.length}`);
 		} else {
-			console.log(`[reconcileAdManifest] manifest already in sync (${next.length} images)`);
+			console.log(`[reconcileAdManifest] manifest already in sync (${next.length} images, ${nextHidden.length} hidden)`);
 		}
 	} catch (err) {
 		console.error('[reconcileAdManifest] failed:', err);
 	}
+}
+
+/**
+ * Read the on-disk manifest with backward-compat defaults so older files
+ * without `hidden` keep working.
+ */
+function readManifest() {
+	const cfg = readJSONFile(config.adImageDir, 'config.json') || {};
+	return {
+		list: Array.isArray(cfg.list) ? cfg.list : [],
+		hidden: Array.isArray(cfg.hidden) ? cfg.hidden : [],
+	};
 }
 
 module.exports = function (io) {
@@ -81,8 +97,8 @@ module.exports = function (io) {
 	// 1. get ad image list
 	router.get('/list', (req, res) => {
 		try {
-			const adConfig = readJSONFile(config.adImageDir, 'config.json');
-			res.json(adConfig);
+			const { list, hidden } = readManifest();
+			res.json({ status: true, list, hidden });
 		} catch (err) {
 			console.error(`[getAdConfig] Error: ${err}`);
 			res.status(500).json(errorResponse(err));
@@ -133,9 +149,9 @@ module.exports = function (io) {
 				throw new Error('MulterFailed');
 			}
 
-			const adConfig = readJSONFile(config.adImageDir, 'config.json');
-			adConfig.list.push(req.file.filename.split('.')[0]);
-			writeObjectAsJSON(config.adImageDir, 'config.json', adConfig);
+			const manifest = readManifest();
+			manifest.list.push(req.file.filename.split('.')[0]);
+			writeObjectAsJSON(config.adImageDir, 'config.json', manifest);
 
 			console.log('[uploadNewAd] Successfully uploaded image:',
 				`${req.file.originalname} -> ${req.file.filename}`);
@@ -152,7 +168,8 @@ module.exports = function (io) {
 	// 4. reorder ad images
 	router.post('/reorder', requireAuth, (req, res) => {
 		try {
-			const current = readJSONFile(config.adImageDir, 'config.json').list;
+			const manifest = readManifest();
+			const current = manifest.list;
 			const reordered = req.body.adList;
 
 			if ((new Set(current).size) !== (new Set(reordered).size)) {
@@ -165,7 +182,7 @@ module.exports = function (io) {
 				}
 			});
 
-			writeObjectAsJSON(config.adImageDir, 'config.json', { list: reordered });
+			writeObjectAsJSON(config.adImageDir, 'config.json', { list: reordered, hidden: manifest.hidden });
 			console.log('[reorderAdList] successfully updated ad/config.json');
 
 			if (req.body.rmcache) {
@@ -174,7 +191,7 @@ module.exports = function (io) {
 			}
 
 			res.json({ status: true });
-			
+
 		} catch (err) {
 			console.error(`[reorderAdList] Error: ${err}`);
 			res.status(500).json(errorResponse(err));
@@ -185,8 +202,9 @@ module.exports = function (io) {
 	router.post('/remove/:imageId(*)', requireAuth, (req, res) => {
 		try {
 			const select = req.params.imageId;
-			const current = readJSONFile(config.adImageDir, 'config.json').list;
-			const removedList = current.filter(item => item !== select);
+			const manifest = readManifest();
+			const removedList = manifest.list.filter(item => item !== select);
+			const removedHidden = manifest.hidden.filter(item => item !== select);
 
 			// Find and delete image file with any supported extension
 			const supportedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
@@ -199,12 +217,12 @@ module.exports = function (io) {
 					break;
 				}
 			}
-			
+
 			if (!deleted) {
 				console.warn('[deleteAdImage] File not found, but removing from config:', select);
 			}
 
-			writeObjectAsJSON(config.adImageDir, 'config.json', { list: removedList });
+			writeObjectAsJSON(config.adImageDir, 'config.json', { list: removedList, hidden: removedHidden });
 			console.log('[deleteAdImage] Successfully deleted image:', select);
 
 			if (req.body.rmcache) {
@@ -215,6 +233,36 @@ module.exports = function (io) {
 			res.json({ status: true });
 		} catch (err) {
 			console.error(`[deleteAdImage] Error: ${err}`);
+			res.status(500).json(errorResponse(err));
+		}
+	});
+
+	// 6. toggle ad visibility (hide/show without deleting the file).
+	// body: { hidden: boolean }
+	router.post('/visibility/:imageId(*)', requireAuth, (req, res) => {
+		try {
+			const select = req.params.imageId;
+			const wantHidden = !!req.body.hidden;
+			const manifest = readManifest();
+
+			if (!manifest.list.includes(select)) {
+				return res.status(404).json({ status: false, reason: 'UnknownAd' });
+			}
+
+			const hiddenSet = new Set(manifest.hidden);
+			if (wantHidden) hiddenSet.add(select);
+			else hiddenSet.delete(select);
+
+			// Preserve list order; only the hidden set changes.
+			const nextHidden = manifest.list.filter(id => hiddenSet.has(id));
+
+			writeObjectAsJSON(config.adImageDir, 'config.json', { list: manifest.list, hidden: nextHidden });
+			console.log(`[adVisibility] ${select} -> ${wantHidden ? 'hidden' : 'visible'} (total hidden=${nextHidden.length})`);
+
+			io.emit('reqFrontendRefresh');
+			res.json({ status: true });
+		} catch (err) {
+			console.error(`[adVisibility] Error: ${err}`);
 			res.status(500).json(errorResponse(err));
 		}
 	});

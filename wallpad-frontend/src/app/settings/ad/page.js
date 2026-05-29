@@ -3,15 +3,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ChevronUp, ChevronDown, Upload, Eye, EyeOff } from 'lucide-react';
 
 import { backendPort } from '../_lib/backend';
 import { authFetch } from '../_lib/auth';
 
 export default function AdsSection() {
     let [adList, setAdList] = useState([]);
+    let [hiddenSet, setHiddenSet] = useState(() => new Set());
     let [isDraggingOver, setIsDraggingOver] = useState(false);
     let [isUploading, setIsUploading] = useState(false);
+    let [deleteDialog, setDeleteDialog] = useState({ open: false, item: null, index: null });
     const fileInputRef = useRef(null);
 
     // dragenter/leave fire per descendant so we keep a depth counter to
@@ -121,17 +127,58 @@ export default function AdsSection() {
         })
             .then(res => res.json())
             .then(body => {
-                if (body.status) fetchAdList();
+                if (body.status) {
+                    toast.success('이미지를 삭제했어요.');
+                    fetchAdList();
+                } else {
+                    throw new Error();
+                }
             })
-            .catch(err => console.error('Failed to delete ad:', err));
+            .catch(err => {
+                console.error('Failed to delete ad:', err);
+                toast.error('삭제에 실패했어요.');
+            });
+    };
+
+    const toggleAdVisibility = (adId, nextHidden) => {
+        // Optimistic update so the icon flips immediately — even before the
+        // backend round-trip finishes — and the user doesn't think the click
+        // was ignored. Rolled back on error.
+        const previousSet = hiddenSet;
+        const optimistic = new Set(previousSet);
+        if (nextHidden) optimistic.add(adId);
+        else optimistic.delete(adId);
+        setHiddenSet(optimistic);
+
+        const url = new URL(`/wallpad/ad/visibility/${adId}`, `http://${location.hostname}:${backendPort}`);
+        authFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hidden: nextHidden })
+        })
+            .then(res => res.json())
+            .then(body => {
+                if (body.status) fetchAdList();
+                else throw new Error();
+            })
+            .catch(err => {
+                console.error('Failed to toggle ad visibility:', err);
+                setHiddenSet(previousSet);
+                toast.error('숨김 상태 변경에 실패했어요.');
+            });
     };
 
     useEffect(() => { fetchAdList(); }, []);
 
     function fetchAdList() {
-        fetch(new URL('/wallpad/ad/list', `http://${location.hostname}:${backendPort}`))
+        // no-store so a stale cached response can't mask the latest visibility
+        // change from /visibility right before us.
+        fetch(new URL('/wallpad/ad/list', `http://${location.hostname}:${backendPort}`), { cache: 'no-store' })
             .then(res => res.json())
-            .then(json => setAdList(json.list))
+            .then(json => {
+                setAdList(Array.isArray(json.list) ? json.list : []);
+                setHiddenSet(new Set(Array.isArray(json.hidden) ? json.hidden : []));
+            })
             .catch(err => console.error('failed to fetch ad list.', err));
     }
 
@@ -171,50 +218,64 @@ export default function AdsSection() {
                 <p className="text-sm text-muted-foreground mb-3">
                     화살표로 이미지의 순서를 변경하거나 삭제할 수 있어요.
                 </p>
-                <div className='rounded-md py-2.5 px-3 sm:px-5 w-full max-w-[32rem] bg-slate-100'>
+                <div className='rounded-md py-2.5 px-3 sm:px-5 w-full max-w-[32rem] bg-accent'>
                     {adList.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-6">
                             등록된 광고 이미지가 없어요.
                         </p>
                     ) : (
                         <div className='space-y-4 py-2'>
-                            {adList.map((item, index) => (
-                                <div key={item} className="relative flex items-center gap-2">
-                                    <div className="flex flex-col">
-                                        <ChevronUp strokeWidth={1.6}
-                                            className='stroke-slate-400 cursor-pointer hover:stroke-slate-700 w-5 h-5'
-                                            onClick={() => moveAd(index, -1)} />
-                                        <ChevronDown strokeWidth={1.6}
-                                            className='stroke-slate-400 cursor-pointer hover:stroke-slate-700 w-5 h-5'
-                                            onClick={() => moveAd(index, 1)} />
-                                    </div>
-                                    <div className="relative flex-1">
-                                        <div className="absolute flex right-[.5rem] top-[.5rem] space-x-1.5">
-                                            <p
-                                                className="font-medium text-sm bg-[#f2f4f6] hover:bg-red-600 hover:text-gray-50 opacity-90 rounded-full py-[.04rem] px-2 cursor-pointer"
-                                                onClick={() => deleteAd(item)}
-                                            >
-                                                삭제
-                                            </p>
-                                            <p className="font-medium text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full py-[.04rem] px-1.5">
-                                                {`${index + 1}/${adList.length}`}
-                                            </p>
+                            {adList.map((item, index) => {
+                                const isHidden = hiddenSet.has(item);
+                                return (
+                                    <div key={item} className="relative flex items-center gap-3">
+                                        <div className="relative flex-1">
+                                            <div className="absolute flex right-[.5rem] top-[.5rem] space-x-1.5 items-center z-30">
+                                                <button
+                                                    type="button"
+                                                    title={isHidden ? '메인 화면에 다시 표시' : '메인 화면에서 일시적으로 숨기기'}
+                                                    aria-label={isHidden ? '광고 표시하기' : '광고 숨기기'}
+                                                    className="font-medium text-sm bg-[#f2f4f6] hover:bg-gray-200 hover:text-gray-50 opacity-90 rounded-full p-1 cursor-pointer flex items-center justify-center"
+                                                    onClick={(e) => { e.stopPropagation(); toggleAdVisibility(item, !isHidden); }}
+                                                >
+                                                    {isHidden
+                                                        ? <EyeOff className="w-3.5 h-3.5" />
+                                                        : <Eye className="w-3.5 h-3.5" />}
+                                                </button>
+                                                <p
+                                                    className="font-medium text-sm bg-[#f2f4f6] hover:bg-red-600 hover:text-gray-50 opacity-90 rounded-full py-[.04rem] px-2 cursor-pointer"
+                                                    onClick={() => setDeleteDialog({ open: true, item, index })}
+                                                >
+                                                    삭제
+                                                </p>
+                                                <p className="font-medium text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full py-[.04rem] px-1.5">
+                                                    {`${index + 1}/${adList.length}`}
+                                                </p>
+                                            </div>
+                                            <img
+                                                src={imageURL(item)}
+                                                className={`rounded-md w-full transition-[filter,opacity] duration-200 ${isHidden ? 'opacity-50 grayscale' : ''}`}
+                                                alt='ad_image'
+                                                onError={() => console.error('error occured during fetch: ', item)}
+                                                style={{
+                                                    objectFit: 'cover',
+                                                    maxWidth: '100%',
+                                                    height: 'auto',
+                                                    aspectRatio: '1416/460'
+                                                }}
+                                            />
                                         </div>
-                                        <img
-                                            src={imageURL(item)}
-                                            className='rounded-md w-full'
-                                            alt='ad_image'
-                                            onError={() => console.error('error occured during fetch: ', item)}
-                                            style={{
-                                                objectFit: 'cover',
-                                                maxWidth: '100%',
-                                                height: 'auto',
-                                                aspectRatio: '1416/460'
-                                            }}
-                                        />
+                                        <div className="flex flex-col gap-3">
+                                            <ChevronUp strokeWidth={1.6}
+                                                className='stroke-slate-400 cursor-pointer hover:stroke-slate-700 w-5 h-5'
+                                                onClick={() => moveAd(index, -1)} />
+                                            <ChevronDown strokeWidth={1.6}
+                                                className='stroke-slate-400 cursor-pointer hover:stroke-slate-700 w-5 h-5'
+                                                onClick={() => moveAd(index, 1)} />
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -231,6 +292,34 @@ export default function AdsSection() {
                     </div>
                 </div>
             )}
+
+            <AlertDialog
+                open={deleteDialog.open}
+                onOpenChange={(open) => { if (!open) setDeleteDialog({ open: false, item: null, index: null }); }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>광고 이미지를 삭제할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteDialog.index !== null
+                                ? `${deleteDialog.index + 1}번 광고 이미지를 정말 삭제할까요? 이 동작은 되돌릴 수 없어요.`
+                                : '광고 이미지를 정말 삭제할까요?'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-500 text-white hover:bg-red-600"
+                            onClick={() => {
+                                if (deleteDialog.item) deleteAd(deleteDialog.item);
+                                setDeleteDialog({ open: false, item: null, index: null });
+                            }}
+                        >
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

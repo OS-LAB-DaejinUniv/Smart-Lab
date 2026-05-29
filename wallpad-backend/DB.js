@@ -245,7 +245,8 @@ class DB {
                 return acc;
             }, []);
 
-            const { clause, params } = query.buildUUIDFilter(selectedUUID);
+            const range = (filter.datetime && typeof filter.datetime === 'object') ? filter.datetime : {};
+            const { clause, params } = query.buildHistoryFilter(selectedUUID, range);
 
             const rows = (this.db)
                 .prepare(query.getHistoryBase + clause + query.historyOrderAndLimit)

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { ko } from 'date-fns/locale';
+import 'react-day-picker/style.css';
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -15,17 +17,22 @@ import {
     DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { ListFilter, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { backendPort } from '../_lib/backend';
 import { authFetch } from '../_lib/auth';
+
+// Format a Date as "M/D"; used in the dropdown trigger label.
+const fmtMD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
 
 export default function LogsSection() {
     const [logs, setLogs] = useState([]);
     const [UUIDName, setUUIDName] = useState({});
     const [statusCaption, setStatusCaption] = useState({});
     const [filter, setFilter] = useState(null);
+    const [dateRange, setDateRange] = useState(undefined);  // { from?, to? } from react-day-picker
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
@@ -41,6 +48,27 @@ export default function LogsSection() {
                 });
         }
     }
+
+    // Whenever the calendar selection changes, push from/to (ms since epoch)
+    // into filter.datetime so the same effect that refetches on filter change
+    // picks it up. `from` is anchored to 00:00 and `to` to 23:59:59.999 so
+    // ranges feel inclusive of whole days.
+    useEffect(() => {
+        if (!filter) return;
+        const datetime = {};
+        if (dateRange?.from) {
+            const f = new Date(dateRange.from);
+            f.setHours(0, 0, 0, 0);
+            datetime.from = f.getTime();
+        }
+        if (dateRange?.to) {
+            const t = new Date(dateRange.to);
+            t.setHours(23, 59, 59, 999);
+            datetime.to = t.getTime();
+        }
+        setFilter(prev => prev ? { ...prev, datetime } : prev);
+        setCurrentPage(1);
+    }, [dateRange]);
 
     useEffect(() => {
         if (!filter) return;
@@ -163,16 +191,47 @@ export default function LogsSection() {
                                 <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>변동내역</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>
                                     <DropdownMenu>
-                                        <DropdownMenuTrigger className="flex px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
-                                            <span className="hidden sm:inline">날짜 및 시간</span>
-                                            <span className="sm:hidden">일시</span>
-                                            <ListFilter className="w-3.5 h-3.5 ml-[.2rem] mt-[.15rem] text-gray-500" />
+                                        <DropdownMenuTrigger className="flex items-center px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
+                                            <span className="hidden sm:inline text-gray-600">
+                                                {dateRange?.from && dateRange?.to
+                                                    ? `${fmtMD(dateRange.from)} 부터 ${fmtMD(dateRange.to)} 까지`
+                                                    : dateRange?.from
+                                                        ? `${fmtMD(dateRange.from)} –`
+                                                        : '날짜 선택'}
+                                            </span>
+                                            <span className="sm:hidden text-gray-600">
+                                                {dateRange?.from && dateRange?.to
+                                                    ? `${fmtMD(dateRange.from)} 부터 ${fmtMD(dateRange.to)} 까지`
+                                                    : '날짜 선택'}
+                                            </span>
+                                            <ListFilter className="w-3.5 h-3.5 ml-[.2rem] text-gray-500" />
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuLabel>조회하려는 날짜 또는 기간을 지정하세요.</DropdownMenuLabel>
+                                        <DropdownMenuContent align="start" className="w-auto p-0">
+                                            <DropdownMenuLabel>조회하려는 기간을 지정해 주세요.</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem><Input /></DropdownMenuItem>
-                                            <DropdownMenuItem />
+                                            <Calendar
+                                                mode="range"
+                                                locale={ko}
+                                                selected={dateRange}
+                                                onSelect={setDateRange}
+                                                numberOfMonths={1}
+                                                captionLayout="dropdown"
+                                                startMonth={new Date(new Date().getFullYear() - 10, 0)}
+                                                endMonth={new Date()}
+                                                defaultMonth={dateRange?.to || dateRange?.from || undefined}
+                                            />
+                                            <DropdownMenuSeparator />
+                                            <div className="flex justify-end px-2 py-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => setDateRange(undefined)}
+                                                    disabled={!dateRange?.from && !dateRange?.to}
+                                                >
+                                                    초기화
+                                                </Button>
+                                            </div>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableHead>

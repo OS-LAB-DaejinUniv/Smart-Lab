@@ -31,19 +31,44 @@ const query = {
     historyOrderAndLimit: ' ORDER BY "at" DESC LIMIT ? OFFSET ?',
 
     /**
-     * Build a safe WHERE clause for UUID filtering using placeholders.
-     * @param {string[]} uuids - array of UUID strings
-     * @returns {{ clause: string, params: string[] }}
+     * Build a safe WHERE clause for UUID + optional date-range filtering.
+     * `range` is `{ from?, to? }` of millisecond epoch timestamps.
+     * @param {string[]} uuids
+     * @param {{ from?: number, to?: number }} [range]
+     * @returns {{ clause: string, params: Array<string|number> }}
      */
-    buildUUIDFilter(uuids = []) {
+    buildHistoryFilter(uuids = [], range = {}) {
+        const where = [];
+        const params = [];
+
         if (uuids.length === 0) {
             return { clause: ' WHERE 1=0', params: [] };
         }
         const placeholders = uuids.map(() => '?').join(', ');
+        where.push(`uuid IN (${placeholders})`);
+        params.push(...uuids);
+
+        if (Number.isFinite(range.from)) {
+            where.push('"at" >= ?');
+            params.push(range.from);
+        }
+        if (Number.isFinite(range.to)) {
+            where.push('"at" <= ?');
+            params.push(range.to);
+        }
+
         return {
-            clause: ` WHERE uuid IN (${placeholders})`,
-            params: uuids
+            clause: ` WHERE ${where.join(' AND ')}`,
+            params
         };
+    },
+
+    /**
+     * Legacy alias kept for callers that only filter by UUID.
+     * @deprecated use buildHistoryFilter instead.
+     */
+    buildUUIDFilter(uuids = []) {
+        return this.buildHistoryFilter(uuids);
     }
 };
 

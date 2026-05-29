@@ -190,14 +190,14 @@ export default function AdsSection() {
                                     </div>
                                     <div className="relative flex-1">
                                         <div className="absolute flex right-[.5rem] top-[.5rem] space-x-1.5">
-                                            <p className="font-medium text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full py-[.04rem] px-1.5">
-                                                {`${index + 1}/${adList.length}`}
-                                            </p>
                                             <p
                                                 className="font-medium text-sm bg-[#f2f4f6] hover:bg-red-600 hover:text-gray-50 opacity-90 rounded-full py-[.04rem] px-2 cursor-pointer"
                                                 onClick={() => deleteAd(item)}
                                             >
                                                 삭제
+                                            </p>
+                                            <p className="font-medium text-sm tabular-nums tracking-wider bg-[#f2f4f6] opacity-90 rounded-full py-[.04rem] px-1.5">
+                                                {`${index + 1}/${adList.length}`}
                                             </p>
                                         </div>
                                         <img

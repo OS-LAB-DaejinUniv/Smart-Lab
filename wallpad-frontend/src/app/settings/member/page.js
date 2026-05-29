@@ -18,16 +18,43 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import {
+    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ChevronDown, ChevronUp, UserPlus, CreditCard, Nfc } from 'lucide-react';
 
 import { backendPort } from '../_lib/backend';
 import { authFetch, getAccessToken, refreshAccessToken } from '../_lib/auth';
 import { formatBackendError, formatThrownError } from '../_lib/error';
 
+const _padZ2 = (n) => String(n).padStart(2, '0');
+
+// "방금" / "n분 전" / "n시간 전" / "n일 전"
+function formatRelativeTime(timestamp, now) {
+    if (!timestamp) return '기록이 없어요';
+    const diff = now - timestamp;
+    if (diff < 60_000) return '방금';
+    const min = Math.floor(diff / 60_000);
+    if (min < 60) return `${min}분 전`;
+    const hour = Math.floor(min / 60);
+    if (hour < 24) return `${hour}시간 전`;
+    const day = Math.floor(hour / 24);
+    return `${day}일 전`;
+}
+
+// Tooltip body — full local timestamp so admins can pinpoint the event.
+function formatAbsoluteTime(timestamp) {
+    if (!timestamp) return '변동 기록이 없어요';
+    const d = new Date(timestamp);
+    return `${d.getFullYear()}-${_padZ2(d.getMonth() + 1)}-${_padZ2(d.getDate())} ${_padZ2(d.getHours())}:${_padZ2(d.getMinutes())}:${_padZ2(d.getSeconds())}`;
+}
+
 export default function MemberSection() {
     let [memberList, setMemberList] = useState([]);
     let positionText = ['부원', '랩장', '수습부원'];
     let [statusCaption, setStatusCaption] = useState([]);
+    // Ticks every 30s so 마지막 변동 labels stay current without refetching members.
+    let [nowTick, setNowTick] = useState(() => Date.now());
 
     let [githubFailedMembers, setGithubFailedMembers] = useState(new Set());
 
@@ -177,6 +204,11 @@ export default function MemberSection() {
             })
             .catch(err => console.error('failed to fetch status caption', err));
     }
+
+    useEffect(() => {
+        const tickId = setInterval(() => setNowTick(Date.now()), 30_000);
+        return () => clearInterval(tickId);
+    }, []);
 
     useEffect(() => {
         fetchMembetList();
@@ -407,12 +439,14 @@ export default function MemberSection() {
         <>
             <div className='flex flex-col space-y-5 w-full'>
                 <div className="-mx-4 sm:mx-0">
+                    <TooltipProvider>
                     <Table className="w-full">
                         <colgroup>
                             <col style={{ minWidth: '4.4rem' }} />
                             <col style={{ minWidth: '3.5rem', maxWidth: '10rem' }} />
                             <col style={{ minWidth: '3.5rem', maxWidth: '10rem' }} />
-                            <col style={{ width: '100%' }} />
+                            <col />
+                            <col style={{ width: '100%', minWidth: '6rem' }} />
                             <col style={{ minWidth: '8rem' }} />
                             <col style={{ minWidth: '5rem' }} />
                         </colgroup>
@@ -422,6 +456,7 @@ export default function MemberSection() {
                                 <TableHead className='h-8 p-0 align-middle text-center text-gray-600'>직책</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-center text-gray-600'>이름</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>상태</TableHead>
+                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3'>마지막 변동</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-gray-600 text-center whitespace-nowrap'>관리 메뉴</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-right text-gray-600 pr-3'>표시 순서</TableHead>
                             </TableRow>
@@ -429,7 +464,7 @@ export default function MemberSection() {
                         <TableBody>
                             {memberList.length === 0 ? (
                                 <TableRow className='border-0 h-20 hover:bg-transparent'>
-                                    <TableCell colSpan={6} className="h-1 p-0 align-middle">
+                                    <TableCell colSpan={7} className="h-1 p-0 align-middle">
                                         <div className="h-full flex items-center justify-center text-center text-sm text-muted-foreground">
                                             등록된 구성원이 없어요. 새 구성원 추가 버튼으로 구성원을 등록해 주세요.
                                         </div>
@@ -522,6 +557,18 @@ export default function MemberSection() {
                                                     </DropdownMenu>
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="h-1 p-0 align-middle text-left">
+                                                <div className={`h-full text-sm pl-3 pr-2 ${bgColor} flex items-center justify-start font-medium text-gray-500 whitespace-nowrap`}>
+                                                    <Tooltip delayDuration={0}>
+                                                        <TooltipTrigger className="text-gray-600 cursor-default tabular-nums">
+                                                            {formatRelativeTime(member.updated, nowTick)}
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top">
+                                                            {formatAbsoluteTime(member.updated)}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="h-1 p-0 align-middle">
                                                 <div className={`h-full text-sm flex items-center justify-center font-medium ${bgColor} text-gray-600`}>
                                                     <Button className="h-6 w-12 rounded-md text-sm bg-transparent hover:bg-gray-200 text-gray-600"
@@ -556,6 +603,7 @@ export default function MemberSection() {
                             )}
                         </TableBody>
                     </Table>
+                    </TooltipProvider>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <p className="text-sm text-muted-foreground">현재 총원 {memberList.length}명</p>
@@ -606,11 +654,9 @@ export default function MemberSection() {
                         <AlertDialogDescription>새로운 구성원의 정보를 입력하세요.</AlertDialogDescription>
                         <div className="space-y-4 mt-4">
                             <div>
-                                <label className="text-sm font-medium">이름 *</label>
                                 <Input value={addMemberName} onChange={(e) => setAddMemberName(e.target.value)} className="mt-1.5" placeholder="구성원 이름" />
                             </div>
                             <div>
-                                <label className="text-sm font-medium">직책 *</label>
                                 <Select value={addMemberPosition} onValueChange={(v) => {
                                     setAddMemberPosition(v);
                                     if (v !== '2') setAddMemberSkipCard(false);
@@ -626,7 +672,6 @@ export default function MemberSection() {
                                 </Select>
                             </div>
                             <div>
-                                <label className="text-sm font-medium">ID카드 일련번호 {addMemberSkipCard ? '' : '*'}</label>
                                 {addMemberPosition === '2' && (
                                     <div className="flex items-center gap-2 mt-2">
                                         <Checkbox
@@ -650,7 +695,7 @@ export default function MemberSection() {
                                     </p>
                                 ) : (
                                     <>
-                                        <Input value={addMemberCard} onChange={(e) => setAddMemberCard(e.target.value)} className="mt-1.5" placeholder="ID 카드 일련번호" fontFamily="monospace" />
+                                        <Input value={addMemberCard} onChange={(e) => setAddMemberCard(e.target.value)} className="mt-1.5" placeholder="eID 카드 일련번호" fontFamily="monospace" />
                                         <div className="flex items-center gap-2 mt-2">
                                             <Button
                                                 type="button"
@@ -672,8 +717,7 @@ export default function MemberSection() {
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium">GitHub 닉네임</label>
-                                <Input value={addMemberNickname} onChange={(e) => setAddMemberNickname(e.target.value)} className="mt-1.5" placeholder="프로필 사진을 불러올 GitHub 사용자 이름" />
+                                <Input value={addMemberNickname} onChange={(e) => setAddMemberNickname(e.target.value)} className="mt-1.5" placeholder="프로필 사진을 불러올 GitHub 닉네임(선택)" />
                             </div>
                             {addMemberError && <p className="text-red-500 text-sm">{addMemberError}</p>}
                         </div>

@@ -84,6 +84,7 @@ export default function ConfigSection() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [title, setTitle] = useState('');
+    const [adTitle, setAdTitle] = useState('');
     const [adTransitionRate, setAdTransitionRate] = useState(8000);
     const [memberStatusCaption, setMemberStatusCaption] = useState(['', '', '']);
     const [arduinoDeviceSerial, setArduinoDeviceSerial] = useState('');
@@ -95,7 +96,8 @@ export default function ConfigSection() {
     const [themeMode, setThemeMode] = useState('light');
     const [themeDarkStart, setThemeDarkStart] = useState('19:00');
     const [themeDarkEnd, setThemeDarkEnd] = useState('07:00');
-    const [clockStyle, setClockStyle] = useState('flip');
+    const [clockStyle, setClockStyle] = useState('normal');
+    const [displayScale, setDisplayScale] = useState('fit-width');
     const [logoSrcs, setLogoSrcs] = useState({ light: null, dark: null });
     const [logoUploadingVariant, setLogoUploadingVariant] = useState(null);
     const [webhookUrlsText, setWebhookUrlsText] = useState('');
@@ -148,6 +150,7 @@ export default function ConfigSection() {
             .then(body => {
                 if (body.status) {
                     setTitle(body.title || '');
+                    setAdTitle(body.adTitle || '');
                     setAdTransitionRate(body.adTransitionRate || 8000);
                     if (Array.isArray(body.memberStatusCaption)) setMemberStatusCaption(body.memberStatusCaption);
                     setArduinoDeviceSerial(body.arduinoDeviceSerial || '');
@@ -160,6 +163,9 @@ export default function ConfigSection() {
                     }
                     if (body.clockStyle === 'flip' || body.clockStyle === 'normal') {
                         setClockStyle(body.clockStyle);
+                    }
+                    if (['fit-width', 'fit-height', 'off'].includes(body.displayScale)) {
+                        setDisplayScale(body.displayScale);
                     }
                     if (body.logoUrls && typeof body.logoUrls === 'object') {
                         const v = body.logoVersion || 0;
@@ -190,6 +196,7 @@ export default function ConfigSection() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 title,
+                adTitle,
                 adTransitionRate: parseInt(adTransitionRate),
                 memberStatusCaption,
                 arduinoDeviceSerial,
@@ -203,6 +210,7 @@ export default function ConfigSection() {
                     darkEnd: /^\d{2}:\d{2}$/.test(themeDarkEnd) ? themeDarkEnd : '07:00',
                 },
                 clockStyle,
+                displayScale,
                 webhookUrls: webhookUrlsText.split('\n').map(s => s.trim()).filter(Boolean)
             })
         })
@@ -465,6 +473,21 @@ export default function ConfigSection() {
             </SettingsRow>
 
             <SettingsRow
+                stackOnMobile
+                label="광고 표시부 제목"
+                description="메인 화면에 보여질 광고 표시부 제목을 입력해 주세요."
+                htmlFor="wp-adtitle"
+            >
+                <Input
+                    id="wp-adtitle"
+                    value={adTitle}
+                    onChange={(e) => setAdTitle(e.target.value)}
+                    className="w-full lg:w-64"
+                    placeholder="광고 표시부 제목"
+                />
+            </SettingsRow>
+
+            <SettingsRow
                 label="출석부 화면 테마"
                 description="라이트 / 다크 또는 시간대에 따라 자동으로 전환할 수 있어요."
             >
@@ -532,6 +555,22 @@ export default function ConfigSection() {
                     <SelectContent>
                         <SelectItem value="flip">플립</SelectItem>
                         <SelectItem value="normal">일반</SelectItem>
+                    </SelectContent>
+                </Select>
+            </SettingsRow>
+
+            <SettingsRow
+                label="자동 해상도 맞춤"
+                description="출석부 화면이 가장 올바르게 표시되는 모드로 지정해 주세요."
+            >
+                <Select value={displayScale} onValueChange={setDisplayScale}>
+                    <SelectTrigger className="w-40">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="fit-width">너비 맞춤</SelectItem>
+                        <SelectItem value="fit-height">높이 맞춤</SelectItem>
+                        <SelectItem value="off">끄기 (540×960)</SelectItem>
                     </SelectContent>
                 </Select>
             </SettingsRow>

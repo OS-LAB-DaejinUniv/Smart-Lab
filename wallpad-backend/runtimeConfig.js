@@ -12,6 +12,7 @@ const CONFIG_PATH = path.resolve(__dirname, 'config.json');
 
 const DEFAULTS = {
 	title: '리눅스 클라우드 컴퓨팅 심화 실습실',
+	adTitle: '연구실 소식',
 	arduino: {
 		deviceSerial: '95335343136351B002B2',
 		baudRate: 115200
@@ -62,6 +63,7 @@ const DEFAULTS = {
 		darkEnd: '07:00'
 	},
 	clockStyle: 'normal',    // 'flip' | 'normal'
+	displayScale: 'fit-width', // 'fit-width' | 'fit-height' | 'off'
 	logoUpdatedAt: 0,
 	// Outbound webhook fan-out for member status changes. Each entry is a
 	// full URL; the backend POSTs JSON to every URL whenever a status

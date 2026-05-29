@@ -1,5 +1,6 @@
 {
   "title": "리눅스 클라우드 컴퓨팅 심화 실습실",
+  "adTitle": "연구실 소식",
   "arduino": {
     "deviceSerial": "95335343136351B002B2",
     "baudRate": 115200,
@@ -66,11 +67,12 @@
     "time": "00:00"
   },
   "theme": {
-    "mode": "light",
-    "darkStart": "17:00",
+    "mode": "auto",
+    "darkStart": "18:00",
     "darkEnd": "08:00"
   },
   "clockStyle": "flip",
+  "displayScale": "fit-width",
   "logoUpdatedAt": 1779688188035,
   "webhookUrls": [
     "http://portal.oslab/wallpad_webhook.php"

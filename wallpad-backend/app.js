@@ -308,12 +308,14 @@ app.use(extractToken);
 			res.json({
 				status: true,
 				title: cfg.title,
+				adTitle: cfg.adTitle,
 				adTransitionRate: cfg.adTransitionRate,
 				memberStatusCaption: runtimeConfig.getMemberStatusCaption(),
 				arduinoDeviceSerial: config.arduino.deviceSerial,
 				scheduledRefresh: cfg.scheduledRefresh,
 				theme: cfg.theme,
 				clockStyle: cfg.clockStyle,
+				displayScale: cfg.displayScale || 'fit-width',
 				logoUrls: {
 					light: hasLight ? '/wallpad/logo/light' : null,
 					dark: hasDark ? '/wallpad/logo/dark' : null,
@@ -332,10 +334,13 @@ app.use(extractToken);
 		try {
 			if (!req.authed) return res.status(401).json({ status: false });
 
-			const { title, adTransitionRate, memberStatusCaption } = req.body;
+			const { title, adTitle, adTransitionRate, memberStatusCaption } = req.body;
 
 			if (title !== undefined) {
 				runtimeConfig.set('title', title);
+			}
+			if (adTitle !== undefined) {
+				runtimeConfig.set('adTitle', adTitle);
 			}
 			if (adTransitionRate !== undefined) {
 				const rate = parseInt(adTransitionRate);
@@ -380,6 +385,19 @@ app.use(extractToken);
 						reason: 'clockStyle must be "flip" or "normal"'
 					});
 				}
+			}
+
+			const { displayScale } = req.body;
+			if (displayScale !== undefined) {
+				if (!['fit-width', 'fit-height', 'off'].includes(displayScale)) {
+					return res.status(400).json({
+						status: false,
+						error: 'InvalidPayload',
+						reason: 'displayScale must be "fit-width", "fit-height", or "off"'
+					});
+				}
+				runtimeConfig.set('displayScale', displayScale);
+				io.emit('displayScaleUpdate', displayScale);
 			}
 
 			const { theme } = req.body;

@@ -16,8 +16,9 @@ import io from 'socket.io-client';
 const LOGO_WIDTH = 185;
 const LOGO_HEIGHT = 45;
 
-// Design width of <main>; matches globals.css.
+// Design dimensions of <main>; match globals.css.
 const DESIGN_WIDTH = 540;
+const DESIGN_HEIGHT = 960;
 
 const DEFAULT_THEME = { mode: 'light', darkStart: '19:00', darkEnd: '07:00' };
 
@@ -44,11 +45,13 @@ export default function Home() {
   let [socketStatus, setSocketStatus] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [title, setTitle] = useState(null);
+  const [adSectionTitle, setAdSectionTitle] = useState(null);
   const [logoSrcs, setLogoSrcs] = useState({ light: null, dark: null });
   const [statusCaption, setStatusCaption] = useState([]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [activeScheme, setActiveScheme] = useState('light');
   const [clockStyle, setClockStyle] = useState('flip');
+  const [displayScale, setDisplayScale] = useState('fit-width');
   // Extra rows appended to the currently-visible NotifyWindow by extensions
   // (via `ctx.notify(...)` in their handlers). Cleared on every new 'success'
   // event so messages from a previous notification never bleed into the next.
@@ -74,6 +77,7 @@ export default function Home() {
       .then(body => {
         if (!body || !body.status) return;
         setTitle(body.title || '');
+        setAdSectionTitle(body.adTitle || '');
         if (Array.isArray(body.memberStatusCaption)) {
           setStatusCaption(body.memberStatusCaption);
         }
@@ -82,6 +86,9 @@ export default function Home() {
         }
         if (body.clockStyle === 'flip' || body.clockStyle === 'normal') {
           setClockStyle(body.clockStyle);
+        }
+        if (['fit-width', 'fit-height', 'off'].includes(body.displayScale)) {
+          setDisplayScale(body.displayScale);
         }
         if (body.logoUrls && typeof body.logoUrls === 'object') {
           const v = body.logoVersion || 0;
@@ -120,13 +127,16 @@ export default function Home() {
     };
   }, [theme]);
 
-  // Auto-scale <main> so it occupies the full viewport width.
-  // Multiple triggers ensure the scale is never stale: resize/orientation
-  // events, a ResizeObserver, visibility changes, and a periodic safety net.
+  // Scale <main> according to the displayScale setting. Re-runs whenever the
+  // setting changes. Multiple triggers keep the scale fresh across resize,
+  // orientation, visibility, and a periodic safety net.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const applyScale = () => {
-      const scale = window.innerWidth / DESIGN_WIDTH;
+      let scale;
+      if (displayScale === 'fit-height') scale = window.innerHeight / DESIGN_HEIGHT;
+      else if (displayScale === 'off') scale = 1;
+      else scale = window.innerWidth / DESIGN_WIDTH; // fit-width
       document.documentElement.style.setProperty('--app-scale', String(scale));
     };
     applyScale();
@@ -143,7 +153,7 @@ export default function Home() {
       ro.disconnect();
       clearInterval(safetyInterval);
     };
-  }, []);
+  }, [displayScale]);
 
   // state variable which has current member object array to show.
   let [memberStatus, setMemberStatus] = useState(Array(9).fill({
@@ -279,6 +289,12 @@ export default function Home() {
       }
     });
 
+    socket.on('displayScaleUpdate', (val) => {
+      if (['fit-width', 'fit-height', 'off'].includes(val)) {
+        setDisplayScale(val);
+      }
+    });
+
     return () => {
       if (socket) socket.disconnect();
     }
@@ -376,7 +392,16 @@ export default function Home() {
 
         <footer>
           <div className="mb-[1.65rem]">
-            <p className='text-2xl font-bold mt-7 mb-3'>연구실 소식</p>
+            <div className='text-2xl font-bold mt-7 mb-3'>
+              {configLoaded && adSectionTitle !== null ? (
+                <p className='text-2xl font-bold'>{adSectionTitle}</p>
+              ) : (
+                <div
+                  style={{ width: '320px', height: '32px' }}
+                  className='bg-[var(--wp-surface)] animate-pulse rounded-lg'
+                />
+              )}
+            </div>
             {
               socketStatus ?
                 <Advertisement /> :

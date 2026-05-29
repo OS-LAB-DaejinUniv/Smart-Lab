@@ -9,7 +9,7 @@ const pretendard = localFont({
 });
 
 export const metadata = {
-  title: "OS Lab Smart Wallpad",
+  title: 'labtop',
   icons: {
     icon: "/favicon.png"
   }

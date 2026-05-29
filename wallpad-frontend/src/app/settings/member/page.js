@@ -428,12 +428,14 @@ export default function MemberSection() {
                         </TableHeader>
                         <TableBody>
                             {memberList.length === 0 ? (
-                                <TableRow className='border-0 hover:bg-transparent'>
-                                    <TableCell colSpan={6} className="h-20 text-center text-sm text-muted-foreground">
-                                        <br /><br />
-                                        등록된 구성원이 없어요. 새 구성원 추가 버튼으로 구성원을 등록해 주세요.
+                                <TableRow className='border-0 h-20 hover:bg-transparent'>
+                                    <TableCell colSpan={6} className="h-1 p-0 align-middle">
+                                        <div className="h-full flex items-center justify-center text-center text-sm text-muted-foreground">
+                                            등록된 구성원이 없어요. 새 구성원 추가 버튼으로 구성원을 등록해 주세요.
+                                        </div>
                                     </TableCell>
                                 </TableRow>
+
                             ) : (
                                 memberList.map((member, idx) => {
                                     const bgColor = idx % 2 === 0 ? 'bg-accent' : '';

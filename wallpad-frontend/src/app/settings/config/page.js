@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Upload, ChevronRight } from 'lucide-react';
 
+import delay from '../../utils/delay';
 import { backendPort } from '../_lib/backend';
 import { authFetch, clearTokens } from '../_lib/auth';
 import { formatBackendError, formatThrownError } from '../_lib/error';
@@ -53,6 +54,15 @@ const timeToMin = (t) => {
     return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
 };
 
+// Update only the first text-node child of `el` so sibling icons (e.g. lucide
+// SVGs) are not wiped out the way `innerText = ...` would.
+function setButtonText(el, text) {
+    if (!el) return;
+    const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+    if (textNode) textNode.nodeValue = text;
+    else el.prepend(document.createTextNode(text));
+}
+
 export default function ConfigSection() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -65,6 +75,7 @@ export default function ConfigSection() {
     const [themeMode, setThemeMode] = useState('light');
     const [themeDarkStart, setThemeDarkStart] = useState('19:00');
     const [themeDarkEnd, setThemeDarkEnd] = useState('07:00');
+    const [clockStyle, setClockStyle] = useState('flip');
     const [logoSrcs, setLogoSrcs] = useState({ light: null, dark: null });
     const [logoUploadingVariant, setLogoUploadingVariant] = useState(null);
     const [webhookUrlsText, setWebhookUrlsText] = useState('');
@@ -78,6 +89,14 @@ export default function ConfigSection() {
     const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordSaving, setPasswordSaving] = useState(false);
+
+    const [isOpenRebootDialog, setIsOpenRebootDialog] = useState(false);
+    const [isOpenRestartBackendDialog, setIsOpenRestartBackendDialog] = useState(false);
+    const [rebootError, setRebootError] = useState('');
+    const [restartBackendError, setRestartBackendError] = useState('');
+    const refreshButtonRef = useRef(null);
+    const rebootButtonRef = useRef(null);
+    const restartBackendButtonRef = useRef(null);
 
     useEffect(() => { fetchConfig(); }, []);
 
@@ -97,6 +116,9 @@ export default function ConfigSection() {
                         setThemeMode(['light', 'dark', 'auto'].includes(body.theme.mode) ? body.theme.mode : 'light');
                         if (/^\d{2}:\d{2}$/.test(body.theme.darkStart)) setThemeDarkStart(body.theme.darkStart);
                         if (/^\d{2}:\d{2}$/.test(body.theme.darkEnd)) setThemeDarkEnd(body.theme.darkEnd);
+                    }
+                    if (body.clockStyle === 'flip' || body.clockStyle === 'normal') {
+                        setClockStyle(body.clockStyle);
                     }
                     if (body.logoUrls && typeof body.logoUrls === 'object') {
                         const v = body.logoVersion || 0;
@@ -138,6 +160,7 @@ export default function ConfigSection() {
                     darkStart: /^\d{2}:\d{2}$/.test(themeDarkStart) ? themeDarkStart : '19:00',
                     darkEnd: /^\d{2}:\d{2}$/.test(themeDarkEnd) ? themeDarkEnd : '07:00',
                 },
+                clockStyle,
                 webhookUrls: webhookUrlsText.split('\n').map(s => s.trim()).filter(Boolean)
             })
         })
@@ -221,6 +244,71 @@ export default function ConfigSection() {
                 if (inputRef.current) inputRef.current.value = '';
                 console.error('Failed to upload logo:', err);
                 toast.error('로고 업로드에 실패했어요.');
+            });
+    }
+
+    function wallpadReload() {
+        const refreshURL = new URL('/wallpad/refresh', `http://${location.hostname}:${backendPort}`);
+        authFetch(refreshURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rmcache: true })
+        })
+            .then(res => res.json())
+            .then(body => {
+                if (body.status) {
+                    refreshButtonRef.current.disabled = true;
+                    setButtonText(refreshButtonRef.current, '성공!');
+                    delay(1000).then(() => {
+                        refreshButtonRef.current.disabled = false;
+                        setButtonText(refreshButtonRef.current, '실행');
+                    });
+                    return;
+                }
+                throw new Error();
+            })
+            .catch(() => {
+                refreshButtonRef.current.disabled = true;
+                setButtonText(refreshButtonRef.current, '문제가 생겼어요');
+                delay(1000).then(() => {
+                    refreshButtonRef.current.disabled = false;
+                    setButtonText(refreshButtonRef.current, '실행');
+                });
+            });
+    }
+
+    function wallpadReboot() {
+        setRebootError('');
+        const refreshURL = new URL('/wallpad/reboot', `http://${location.hostname}:${backendPort}`);
+        authFetch(refreshURL, { method: 'POST' })
+            .then(res => res.json())
+            .then(body => {
+                if (body.status) {
+                    rebootButtonRef.current.disabled = true;
+                    setButtonText(rebootButtonRef.current, '재시작 요청함');
+                    return;
+                }
+                setRebootError(formatBackendError(body, '재시작에 실패했어요.'));
+            })
+            .catch((err) => {
+                setRebootError(formatThrownError(err, '재시작에 실패했어요.'));
+            });
+    }
+
+    function wallpadRestartBackend() {
+        setRestartBackendError('');
+        const restartURL = new URL('/wallpad/restart-backend', `http://${location.hostname}:${backendPort}`);
+        authFetch(restartURL, { method: 'POST' })
+            .then(res => res.json())
+            .then(body => {
+                if (body.status) {
+                    setIsOpenRestartBackendDialog(false);
+                    return;
+                }
+                setRestartBackendError(formatBackendError(body, '백엔드 재시작에 실패했어요.'));
+            })
+            .catch((err) => {
+                setRestartBackendError(formatThrownError(err, '백엔드 재시작에 실패했어요.'));
             });
     }
 
@@ -373,6 +461,21 @@ export default function ConfigSection() {
                 );
             })()}
 
+            <SettingsRow
+                label="시계 스타일"
+                description="출석부 화면에 보여질 시계 스타일을 선택할 수 있어요."
+            >
+                <Select value={clockStyle} onValueChange={setClockStyle}>
+                    <SelectTrigger className="w-36">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="flip">플립</SelectItem>
+                        <SelectItem value="normal">일반</SelectItem>
+                    </SelectContent>
+                </Select>
+            </SettingsRow>
+
             <SectionHeading>광고</SectionHeading>
 
             <SettingsRow
@@ -393,7 +496,7 @@ export default function ConfigSection() {
                 <span className="text-sm text-muted-foreground">ms</span>
             </SettingsRow>
 
-            <SectionHeading>하드웨어 / 시스템</SectionHeading>
+            <SectionHeading>시스템</SectionHeading>
 
             <SettingsRow
                 label="카드 판독기 설정"
@@ -432,8 +535,6 @@ export default function ConfigSection() {
                 </SettingsRow>
             )}
 
-            <SectionHeading>외부 시스템 연동</SectionHeading>
-
             <div className="flex flex-col py-4 gap-3 border-b last:border-b-0">
                 <div>
                     <Label htmlFor="webhook-urls" className="text-sm font-medium">Webhook 등록</Label>
@@ -450,6 +551,54 @@ export default function ConfigSection() {
                     className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                 />
             </div>
+
+            <SectionHeading>문제 해결</SectionHeading>
+
+            <SettingsRow
+                label="출석부 새로고침"
+                description="출석부 화면의 이미지가 제대로 표시되지 않을 때 사용해 주세요."
+            >
+                <Button
+                    ref={refreshButtonRef}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 -mr-2 text-muted-foreground hover:text-foreground"
+                    onClick={wallpadReload}
+                >
+                    실행
+                    <ChevronRight className="w-4 h-4 ml-0.5" />
+                </Button>
+            </SettingsRow>
+
+            <SettingsRow
+                label="서비스 재시작"
+                description="labtop 서비스를 재시작합니다."
+            >
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 -mr-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setIsOpenRestartBackendDialog(true)}
+                >
+                    실행
+                    <ChevronRight className="w-4 h-4 ml-0.5" />
+                </Button>
+            </SettingsRow>
+
+            <SettingsRow
+                label="시스템 재시작"
+                description="OS를 재시작합니다."
+            >
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 -mr-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setIsOpenRebootDialog(true)}
+                >
+                    실행
+                    <ChevronRight className="w-4 h-4 ml-0.5" />
+                </Button>
+            </SettingsRow>
 
             <SectionHeading>계정</SectionHeading>
 
@@ -536,6 +685,53 @@ export default function ConfigSection() {
                         <AlertDialogCancel disabled={passwordSaving}>취소</AlertDialogCancel>
                         <AlertDialogAction onClick={changePassword} disabled={passwordSaving}>
                             {passwordSaving ? '변경 중...' : '변경'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isOpenRestartBackendDialog} onOpenChange={setIsOpenRestartBackendDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>백엔드를 재시작할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            재시작이 완료될 때까지 출석부 화면이 표시되지 않을 수 있어요.
+                        </AlertDialogDescription>
+                        {restartBackendError && <p className="text-red-500 text-sm mt-2">{restartBackendError}</p>}
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setRestartBackendError('')}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={wallpadRestartBackend}
+                            ref={restartBackendButtonRef}
+                        >
+                            서비스 재시작
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isOpenRebootDialog} onOpenChange={setIsOpenRebootDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>정말 시스템을 재시작할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            시스템을 재시작하려고 해요.<br />
+                            웹 콘솔은 재시작이 완료되어야 다시 접속할 수 있어요.
+                        </AlertDialogDescription>
+                        {rebootError && <p className="text-red-500 text-sm mt-2">{rebootError}</p>}
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setRebootError('')}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={wallpadReboot}
+                            ref={rebootButtonRef}
+                        >
+                            시스템 재시작
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

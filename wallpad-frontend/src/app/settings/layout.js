@@ -164,7 +164,7 @@ export default function SettingsLayout({ children }) {
 
     return (
         <div className="admin-shell flex flex-col items-center w-full min-h-screen">
-            <header className="sticky flex px-3 sm:px-7 top-0 w-full h-[3rem] z-10 max-w-screen-xl bg-white/95 backdrop-blur items-center border-b border-slate-300">
+            <header className="sticky flex px-3 sm:px-7 top-0 w-full h-[3.5rem] flex-shrink-0 z-30 max-w-screen-xl bg-white/95 backdrop-blur items-center border-b border-slate-300">
                 <button
                     className="md:hidden p-1.5 rounded-md hover:bg-gray-100"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -197,12 +197,12 @@ export default function SettingsLayout({ children }) {
                             {item.name}
                         </Link>
                     ))}
+                    {logoutButton}
                 </div>
-                <div className="p-4 border-t">{logoutButton}</div>
             </nav>
 
             <div className="flex mt-4 w-full max-w-screen-xl justify-center px-4 sm:px-0">
-                <nav className="hidden md:flex flex-col w-[17rem] mx-5 flex-shrink-0">
+                <nav className="hidden md:flex flex-col w-[12rem] mx-5 flex-shrink-0">
                     <div className="flex flex-col gap-1">
                         {sectionMenu.map(item => (
                             <Link

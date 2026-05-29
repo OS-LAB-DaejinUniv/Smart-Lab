@@ -1,11 +1,11 @@
 /**
- * @brief Clock component.
+ * @brief Normal clock component.
  * @date March 9 2026
  */
 
 import React, { useState, useEffect, memo } from 'react';
 
-const Clock = () => {
+const NormalClock = () => {
   const [clock, setClock] = useState('');
   const [formattedDate, setFormattedDate] = useState('');
 
@@ -38,4 +38,4 @@ const Clock = () => {
   );
 };
 
-export default memo(Clock);
+export default memo(NormalClock);

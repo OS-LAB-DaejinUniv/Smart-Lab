@@ -271,6 +271,7 @@ app.use(extractToken);
 				arduinoDeviceSerial: config.arduino.deviceSerial,
 				scheduledRefresh: cfg.scheduledRefresh,
 				theme: cfg.theme,
+				clockStyle: cfg.clockStyle,
 				logoUrls: {
 					light: hasLight ? '/wallpad/logo/light' : null,
 					dark: hasDark ? '/wallpad/logo/dark' : null,
@@ -321,6 +322,20 @@ app.use(extractToken);
 				config.scheduledRefresh = { enabled, time };
 				runtimeConfig.save();
 				scheduleNextRefresh();
+			}
+
+			const { clockStyle } = req.body;
+			if (clockStyle !== undefined) {
+				if (clockStyle === 'flip' || clockStyle === 'normal') {
+					runtimeConfig.set('clockStyle', clockStyle);
+					io.emit('clockStyleUpdate', clockStyle);
+				} else {
+					return res.status(400).json({
+						status: false,
+						error: 'InvalidPayload',
+						reason: 'clockStyle must be "flip" or "normal"'
+					});
+				}
 			}
 
 			const { theme } = req.body;

@@ -2,14 +2,14 @@
 
 import packageJSON from '../../package';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import Profile from './components/Profile';
 import ProfileSkeleton from './components/ProfileSkeleton';
 import NotifyWindow from './components/NotifyWindow';
 import Advertisement from './components/Advertisement';
 import AdvertisementSkeleton from './components/AdvertisementSkeleton';
-import Clock from './components/Clock';
+import FlipClock from './components/FlipClock';
+import NormalClock from './components/NormalClock';
 import io from 'socket.io-client';
 
 // Logo is always rendered at this fixed size on the main wallpad screen.
@@ -48,6 +48,7 @@ export default function Home() {
   const [statusCaption, setStatusCaption] = useState([]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [activeScheme, setActiveScheme] = useState('light');
+  const [clockStyle, setClockStyle] = useState('flip');
   // Extra rows appended to the currently-visible NotifyWindow by extensions
   // (via `ctx.notify(...)` in their handlers). Cleared on every new 'success'
   // event so messages from a previous notification never bleed into the next.
@@ -78,6 +79,9 @@ export default function Home() {
         }
         if (body.theme && typeof body.theme === 'object') {
           setTheme({ ...DEFAULT_THEME, ...body.theme });
+        }
+        if (body.clockStyle === 'flip' || body.clockStyle === 'normal') {
+          setClockStyle(body.clockStyle);
         }
         if (body.logoUrls && typeof body.logoUrls === 'object') {
           const v = body.logoVersion || 0;
@@ -172,7 +176,7 @@ export default function Home() {
     notifyTimeoutRef.current = setTimeout(() => {
       setNotifyLeftTime(0);
       setAppendedMessages([]);
-    }, remaining);    
+    }, remaining);
 
     return () => {
       if (notifyTimeoutRef.current) {
@@ -214,7 +218,8 @@ export default function Home() {
     socket.on('disconnect', (reason) => {
       console.warn('Socket.IO disconnected:', reason);
       setSocketStatus(false);
-      setNotifyStatus({ custom: { title: '연결이 끊어졌어요', message: '서버에 접속할 수 없어 서비스가 중단되었어요.\n연결이 재개되면 자동으로 서비스를 시작할게요.' } });
+      setNotifyStatus({ custom: { title: '페이지를 표시할 수 없어요', message: '서버 연결이 중단되어 서비스가 중지되었어요.\n다시 연결될 때까지 잠시만 기다려 주세요.' } });
+      setMemberStatus(Array(9).fill({ isSkeleton: true }));
       setNotifyLeftTime(Date.now() + 60 * 60 * 1000); // keep showing for a long time until reconnect
     });
 
@@ -268,6 +273,12 @@ export default function Home() {
       }
     });
 
+    socket.on('clockStyleUpdate', (newStyle) => {
+      if (newStyle === 'flip' || newStyle === 'normal') {
+        setClockStyle(newStyle);
+      }
+    });
+
     return () => {
       if (socket) socket.disconnect();
     }
@@ -318,7 +329,7 @@ export default function Home() {
                 );
               })()}
             </div>
-            <Clock />
+            {clockStyle === 'normal' ? <NormalClock /> : <FlipClock />}
           </section>
           <div className='mt-7 mb-3'>
             {configLoaded && title !== null ? (

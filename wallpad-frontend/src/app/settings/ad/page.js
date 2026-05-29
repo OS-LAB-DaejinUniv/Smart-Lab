@@ -171,7 +171,7 @@ export default function AdsSection() {
                 <p className="text-sm text-muted-foreground mb-3">
                     화살표로 이미지의 순서를 변경하거나 삭제할 수 있어요.
                 </p>
-                <div className='rounded-md py-2.5 px-3 sm:px-5 w-full max-w-[28rem] bg-slate-100'>
+                <div className='rounded-md py-2.5 px-3 sm:px-5 w-full max-w-[32rem] bg-slate-100'>
                     {adList.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-6">
                             등록된 광고 이미지가 없어요.

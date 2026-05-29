@@ -91,8 +91,8 @@ class Wallpad {
             // Creates new history entry to be written to the card
             const history = new SCHisory(new Date(), +!this.pending.status);
 
-            // Writes changes to the card
-            this.arduino.write(history);
+            // Writes changes to the card (no-op when no reader is attached)
+            if (this.arduino) this.arduino.write(history);
 
             if (this.DEBUG) {
                 console.log('[Wallpad.authedHandler] Trying to write a new log:', history);
@@ -330,8 +330,8 @@ class Wallpad {
             // Create a new history record to the card.
             const history = new SCHisory(new Date(), CardHistoryType.SYSTEM_REGISTRATION);
 
-            // Writes changes to the card
-            this.arduino.write(history);
+            // Writes changes to the card (no-op when no reader is attached)
+            if (this.arduino) this.arduino.write(history);
             
             // Reset test mode and status
             this.cardTestMode = false;

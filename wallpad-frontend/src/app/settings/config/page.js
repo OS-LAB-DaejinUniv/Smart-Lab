@@ -13,7 +13,7 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Upload, ChevronRight } from 'lucide-react';
+import { Upload, ChevronRight, RefreshCw } from 'lucide-react';
 
 import delay from '../../utils/delay';
 import { backendPort } from '../_lib/backend';
@@ -23,7 +23,24 @@ import { formatBackendError, formatThrownError } from '../_lib/error';
 // Single-row helper: label + optional description on the left, control(s) on
 // the right, with its own border-bottom so rows compose without a parent
 // picking separators. Mirrors the screenshot pattern.
-function SettingsRow({ label, description, htmlFor, children, align = 'center' }) {
+function SettingsRow({ label, description, htmlFor, children, align = 'center', stackOnMobile = false }) {
+    if (stackOnMobile) {
+        // Mobile: stack label/description on top and controls below.
+        // Desktop (sm+): falls back to the default side-by-side layout.
+        return (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6 sm:justify-between py-4 border-b last:border-b-0">
+                <div className="flex-1 min-w-0">
+                    <Label htmlFor={htmlFor} className="text-sm font-medium">{label}</Label>
+                    {description && (
+                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{description}</p>
+                    )}
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-shrink-0">
+                    {children}
+                </div>
+            </div>
+        );
+    }
     return (
         <div className={`flex ${align === 'top' ? 'items-start' : 'items-center'} justify-between py-4 gap-6 border-b last:border-b-0`}>
             <div className="flex-1 min-w-0">
@@ -70,6 +87,9 @@ export default function ConfigSection() {
     const [adTransitionRate, setAdTransitionRate] = useState(8000);
     const [memberStatusCaption, setMemberStatusCaption] = useState(['', '', '']);
     const [arduinoDeviceSerial, setArduinoDeviceSerial] = useState('');
+    const [usbDevices, setUsbDevices] = useState([]);
+    const [usbScanning, setUsbScanning] = useState(false);
+    const [readerConnected, setReaderConnected] = useState(false);
     const [scheduledRefreshEnabled, setScheduledRefreshEnabled] = useState(false);
     const [scheduledRefreshTime, setScheduledRefreshTime] = useState('00:00');
     const [themeMode, setThemeMode] = useState('light');
@@ -98,7 +118,28 @@ export default function ConfigSection() {
     const rebootButtonRef = useRef(null);
     const restartBackendButtonRef = useRef(null);
 
-    useEffect(() => { fetchConfig(); }, []);
+    const [isOpenSaveDialog, setIsOpenSaveDialog] = useState(false);
+    const [saveError, setSaveError] = useState('');
+
+    useEffect(() => {
+        fetchConfig();
+        fetchUsbDevices();
+    }, []);
+
+    function fetchUsbDevices() {
+        setUsbScanning(true);
+        const url = new URL('/wallpad/usb-devices', `http://${location.hostname}:${backendPort}`);
+        authFetch(url)
+            .then(res => res.json())
+            .then(body => {
+                if (body.status) {
+                    setUsbDevices(Array.isArray(body.devices) ? body.devices : []);
+                    setReaderConnected(!!body.connected);
+                }
+            })
+            .catch(err => console.error('Failed to fetch USB devices:', err))
+            .finally(() => setUsbScanning(false));
+    }
 
     function fetchConfig() {
         const url = new URL('/wallpad/config/public', `http://${location.hostname}:${backendPort}`);
@@ -142,6 +183,7 @@ export default function ConfigSection() {
 
     function saveConfig() {
         setSaving(true);
+        setSaveError('');
         const url = new URL('/wallpad/management/config', `http://${location.hostname}:${backendPort}`);
         authFetch(url, {
             method: 'POST',
@@ -166,17 +208,34 @@ export default function ConfigSection() {
         })
             .then(res => res.json())
             .then(body => {
+                if (!body.status) {
+                    throw new Error(formatBackendError(body, '설정 저장에 실패했어요.'));
+                }
+                // Save succeeded — trigger backend restart so changes that
+                // require a fresh process (e.g. card reader serial reconnect)
+                // actually take effect.
+                const restartURL = new URL('/wallpad/restart-backend', `http://${location.hostname}:${backendPort}`);
+                return authFetch(restartURL, { method: 'POST' }).then(res => res.json());
+            })
+            .then(body => {
                 setSaving(false);
-                if (body.status) {
-                    toast.success('설정을 저장했어요.');
+                if (body && body.status) {
+                    setIsOpenSaveDialog(false);
+                    toast.success('설정을 저장하고 서비스를 재시작했어요.');
                 } else {
-                    toast.error('설정 저장에 실패했어요.', { description: body.reason || undefined });
+                    const reason = formatBackendError(body, '재시작에 실패했어요.');
+                    setSaveError(reason);
+                    toast.warning('설정은 저장됐지만 재시작에 실패했어요.', { description: reason });
                 }
             })
             .catch(err => {
                 setSaving(false);
                 console.error('Failed to save config:', err);
-                toast.error('설정 저장에 실패했어요.');
+                const reason = typeof err?.message === 'string' && err.message
+                    ? err.message
+                    : formatThrownError(err, '설정 저장에 실패했어요.');
+                setSaveError(reason);
+                toast.error('설정 저장에 실패했어요.', { description: reason });
             });
     }
 
@@ -331,13 +390,13 @@ export default function ConfigSection() {
     ];
 
     return (
-        <div className="w-full max-w-2xl pb-24">
-            <div className="pt-2">
+        <div className="w-full pb-24">
+            <div className="pt-2 pb-6 border-b">
                 <h2 className="text-base font-semibold mb-1">출석부 화면 로고</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                     메인 화면 상단에 384×75 크기로 표시돼요.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 max-w-3xl gap-4">
                     {logoSlots.map(({ variant, label, previewBg, emptyColor }) => {
                         const inputRef = variant === 'dark' ? logoDarkFileInputRef : logoLightFileInputRef;
                         const src = logoSrcs[variant];
@@ -391,6 +450,7 @@ export default function ConfigSection() {
             <SectionHeading>일반</SectionHeading>
 
             <SettingsRow
+                stackOnMobile
                 label="출석부 이름"
                 description="메인 화면에 보여질 조직 이름을 입력해 주세요."
                 htmlFor="wp-title"
@@ -399,7 +459,7 @@ export default function ConfigSection() {
                     id="wp-title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-64"
+                    className="w-full lg:w-64"
                     placeholder="조직 이름"
                 />
             </SettingsRow>
@@ -500,16 +560,47 @@ export default function ConfigSection() {
 
             <SettingsRow
                 label="카드 판독기 설정"
-                description="카드 판독기의 일련번호를 입력해 주세요."
-                htmlFor="arduino-serial"
+                stackOnMobile
+                description={
+                    arduinoDeviceSerial && !usbDevices.some(d => d.serialNumber === arduinoDeviceSerial)
+                        ? `설정해둔 장치(${arduinoDeviceSerial})가 감지되지 않아요. 재연결 후 새로고침해 주세요.`
+                        : readerConnected
+                            ? '카드 판독기와 연결되어 있어요.'
+                            : '장치 목록을 성공적으로 불러왔어요.'
+                }
             >
-                <Input
-                    id="arduino-serial"
-                    value={arduinoDeviceSerial}
-                    onChange={(e) => setArduinoDeviceSerial(e.target.value)}
-                    className="w-64 font-mono text-sm"
-                    placeholder="20자리 16진수 값"
-                />
+                <Select
+                    value={arduinoDeviceSerial || '__none__'}
+                    onValueChange={(val) => setArduinoDeviceSerial(val === '__none__' ? '' : val)}
+                >
+                    <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-72 font-mono text-sm">
+                        <SelectValue placeholder="장치를 선택해 주세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="__none__">사용 안 함</SelectItem>
+                        {usbDevices.map(d => (
+                            <SelectItem className="text-left" key={d.serialNumber} value={d.serialNumber}>
+                                {d.serialNumber}
+                                {d.manufacturer ? ` — ${d.manufacturer}` : ''}
+                            </SelectItem>
+                        ))}
+                        {arduinoDeviceSerial && !usbDevices.some(d => d.serialNumber === arduinoDeviceSerial) && (
+                            <SelectItem value={arduinoDeviceSerial}>
+                                {arduinoDeviceSerial} (미인식)
+                            </SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={fetchUsbDevices}
+                    disabled={usbScanning}
+                    title="다시 검색"
+                >
+                    <RefreshCw className={`w-4 h-4 ${usbScanning ? 'animate-spin' : ''}`} />
+                </Button>
             </SettingsRow>
 
             <SettingsRow
@@ -530,7 +621,7 @@ export default function ConfigSection() {
                         type="time"
                         value={scheduledRefreshTime}
                         onChange={(e) => setScheduledRefreshTime(e.target.value)}
-                        className="w-28 font-mono"
+                        className="w-30 font-mono"
                     />
                 </SettingsRow>
             )}
@@ -618,15 +709,36 @@ export default function ConfigSection() {
             </SettingsRow>
 
             {/* sticky 저장 바 — 긴 페이지에서도 항상 닿게 */}
-            <div className="sticky bottom-0 mt-8 -mx-4 sm:mx-0 bg-background/90 backdrop-blur border-t flex justify-end py-3 px-4 sm:px-0">
+            <div className="sticky bottom-0 mt-8 -mx-4 sm:mx-0 bg-background/90 backdrop-blur flex justify-end py-3 px-4 sm:px-0">
                 <Button
-                    onClick={saveConfig}
+                    onClick={() => { setSaveError(''); setIsOpenSaveDialog(true); }}
                     disabled={saving}
                     className="min-w-[7rem]"
                 >
                     {saving ? '저장 중...' : '설정 저장'}
                 </Button>
             </div>
+
+            <AlertDialog open={isOpenSaveDialog} onOpenChange={(open) => { if (!saving) setIsOpenSaveDialog(open); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>설정을 저장할까요?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            변경 사항을 적용하기 위해 서비스를 재시작해야 해요.<br />
+                            그동안 출석부 화면이 잠시 표시되지 않을 수 있어요.
+                        </AlertDialogDescription>
+                        {saveError && <p className="text-red-500 text-sm mt-2">{saveError}</p>}
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={saving} onClick={() => setSaveError('')}>
+                            취소
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={saveConfig} disabled={saving}>
+                            {saving ? '저장 중...' : '저장하고 재시작'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog open={isOpenPasswordDialog} onOpenChange={setIsOpenPasswordDialog}>
                 <AlertDialogContent>

@@ -164,7 +164,7 @@ export default function SettingsLayout({ children }) {
 
     return (
         <div className="admin-shell flex flex-col items-center w-full min-h-screen">
-            <header className="sticky flex px-3 sm:px-7 top-0 w-full h-[3.5rem] flex-shrink-0 z-30 max-w-screen-xl bg-white/95 backdrop-blur items-center border-b border-slate-300">
+            <header className="sticky flex px-3 sm:px-7 top-0 w-full h-[3.5rem] flex-shrink-0 z-30 max-w-screen-xl bg-white/95 backdrop-blur items-center">
                 <button
                     className="md:hidden p-1.5 rounded-md hover:bg-gray-100"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -215,7 +215,7 @@ export default function SettingsLayout({ children }) {
                             </Link>
                         ))}
                     </div>
-                    <div className="mt-1 border-t">{logoutButton}</div>
+                    <div className="mt-1">{logoutButton}</div>
                 </nav>
                 <main className="w-full md:mx-5 min-w-0">
                     {current && (

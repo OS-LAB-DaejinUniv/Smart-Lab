@@ -120,11 +120,18 @@ export default function LogsSection() {
         <div className='flex flex-col space-y-5 pb-[7rem]'>
             <div className="flex flex-col w-full justify-center">
                 <div className="-mx-4 sm:mx-0">
+                    <TooltipProvider>
                     <Table className="w-full">
+                        <colgroup>
+                            <col style={{ minWidth: '3.5rem' }} />
+                            <col style={{ minWidth: '5rem', maxWidth: '10rem' }} />
+                            <col style={{ minWidth: '6rem' }} />
+                            <col style={{ width: '100%', minWidth: '8rem' }} />
+                        </colgroup>
                         <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                                <TableHead className="w-[60px] sm:w-[100px] font-semibold">번호</TableHead>
-                                <TableHead className="font-semibold w-[100px]">
+                            <TableRow className='border-0 hover:bg-transparent font-medium text-sm h-11'>
+                                <TableHead className='h-8 p-0 align-middle text-center text-gray-600'>번호</TableHead>
+                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger className="flex px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
                                             이름
@@ -153,12 +160,11 @@ export default function LogsSection() {
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableHead>
-                                <TableHead className="hidden sm:table-cell w-[140px] font-semibold">일련번호</TableHead>
-                                <TableHead className="w-[80px] sm:w-[120px] font-semibold">변동내역</TableHead>
-                                <TableHead className="w-auto sm:w-[200px] font-semibold">
+                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>변동내역</TableHead>
+                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger className="flex px-1.5 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 w-fit">
-                                            <span className="hidden sm:inline" style={{ color: '#71717A' }}>날짜 및 시간</span>
+                                            <span className="hidden sm:inline">날짜 및 시간</span>
                                             <span className="sm:hidden">일시</span>
                                             <ListFilter className="w-3.5 h-3.5 ml-[.2rem] mt-[.15rem] text-gray-500" />
                                         </DropdownMenuTrigger>
@@ -173,72 +179,77 @@ export default function LogsSection() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {logs.map((log, idx) => (
-                                <TableRow key={`${log.uuid}-${log.at}`}>
-                                    <TableCell>{(currentPage - 1) * pageSize + idx + 1}</TableCell>
-                                    <TableCell>{resolveUUID(log.uuid)}</TableCell>
-                                    <TableCell className="hidden sm:table-cell">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <p className="font-mono text-xs bg-slate-100 rounded-md py-1 px-1.5 w-fit">
-                                                        {String(log.uuid)}
-                                                    </p>
-                                                </TooltipTrigger>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </TableCell>
-                                    <TableCell>
-                                        <p className="flex items-center gap-1">
-                                            {log.type == 1
-                                                ? <ArrowRight className="w-3.5 h-3.5 mb-[.1rem] stroke-red-500" />
-                                                : <ArrowLeft className="w-3.5 h-3.5 mb-[.1rem] stroke-blue-500" />}
-                                            <span>{statusCaption[log.type]}</span>
-                                        </p>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <p>
-                                                        {(() => {
-                                                            const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
-                                                            const t = new Date(log.at);
-                                                            return (
-                                                                <>
-                                                                    {`${t.getMonth() + 1}월 ${t.getDate()}일 `}
-                                                                    <span className={(() => {
-                                                                        const day = new Date(log.at).getDay();
-                                                                        if (day == 0) return 'text-red-500';
-                                                                        if (day == 6) return 'text-blue-500';
-                                                                    })()}>
-                                                                        {`(${weekDay[t.getDay()]}) `}
-                                                                    </span>
-                                                                    {`${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`}
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </p>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <div>
-                                                        {(() => {
-                                                            const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
-                                                            const t = new Date(log.at);
-                                                            return (
-                                                                `${t.getFullYear()}년 ${t.getMonth() + 1}월 ${t.getDate()}일 ${weekDay[t.getDay()]}요일 ` +
-                                                                `${String(t.getHours()).padStart(2, '0')}시 ${String(t.getMinutes()).padStart(2, '0')}분 ${String(t.getSeconds()).padStart(2, '0')}초`
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                            {logs.length === 0 ? (
+                                <TableRow className='border-0 h-20 hover:bg-transparent'>
+                                    <TableCell colSpan={4} className="h-1 p-0 align-middle">
+                                        <div className="h-full flex items-center justify-center text-center text-sm text-muted-foreground">
+                                            조회된 로그가 없어요.
+                                        </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : (
+                                logs.map((log, idx) => {
+                                    const bgColor = idx % 2 === 0 ? 'bg-accent' : '';
+                                    return (
+                                        <TableRow key={`${log.uuid}-${log.at}`} className='border-0 h-11 hover:bg-transparent'>
+                                            <TableCell className="h-1 p-0 align-middle">
+                                                <div className={`h-full rounded-l-lg flex items-center justify-center text-sm font-medium text-gray-600 tabular-nums ${bgColor}`}>
+                                                    {(currentPage - 1) * pageSize + idx + 1}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="h-1 p-0 align-middle text-left">
+                                                <div className={`h-full text-sm pl-3.5 ${bgColor} flex items-center justify-start font-medium text-gray-600`}>
+                                                    {resolveUUID(log.uuid)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="h-1 p-0 align-middle text-left">
+                                                <div className={`h-full text-sm pl-3.5 ${bgColor} flex items-center justify-start font-medium text-gray-600 gap-1`}>
+                                                    {log.type == 1
+                                                        ? <ArrowRight className="w-3.5 h-3.5 stroke-red-500" />
+                                                        : <ArrowLeft className="w-3.5 h-3.5 stroke-blue-500" />}
+                                                    <span className="text-gray-600">{statusCaption[log.type]}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="h-1 p-0 align-middle text-left">
+                                                <div className={`h-full text-sm pl-3.5 pr-3 rounded-r-lg ${bgColor} flex items-center justify-start font-medium text-gray-600 whitespace-nowrap`}>
+                                                    <Tooltip delayDuration={0}>
+                                                        <TooltipTrigger className="cursor-default text-left">
+                                                            {(() => {
+                                                                const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
+                                                                const t = new Date(log.at);
+                                                                const day = t.getDay();
+                                                                const dayColor = day === 0 ? 'text-red-500' : day === 6 ? 'text-blue-500' : '';
+                                                                return (
+                                                                    <>
+                                                                        {`${t.getMonth() + 1}월 ${t.getDate()}일 `}
+                                                                        <span className={`text-gray-600 ${dayColor}`}>{`(${weekDay[day]}) `}</span>
+                                                                        <span className="text-gray-600 tabular-nums">
+                                                                            {`${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`}
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top">
+                                                            {(() => {
+                                                                const weekDay = ['일', '월', '화', '수', '목', '금', '토'];
+                                                                const t = new Date(log.at);
+                                                                return (
+                                                                    `${t.getFullYear()}년 ${t.getMonth() + 1}월 ${t.getDate()}일 ${weekDay[t.getDay()]}요일 ` +
+                                                                    `${String(t.getHours()).padStart(2, '0')}시 ${String(t.getMinutes()).padStart(2, '0')}분 ${String(t.getSeconds()).padStart(2, '0')}초`
+                                                                );
+                                                            })()}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
                         </TableBody>
                     </Table>
+                    </TooltipProvider>
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

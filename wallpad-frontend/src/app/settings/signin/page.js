@@ -70,10 +70,8 @@ function SigninContent() {
                     {title}
                 </h1>
                 <form className='flex flex-col gap-2'>
-                    <Label>사용자 이름</Label>
-                    <Input id="username" type="text" className="mb-2.5" ref={refUsername} />
-                    <Label>비밀번호</Label>
-                    <Input type="password" ref={refPassword} />
+                    <Input id="username" type="text" className="mb-2.5" ref={refUsername} placeholder="사용자 이름" />
+                    <Input type="password" ref={refPassword} placeholder="비밀번호" />
                     {signinStatus && (
                         <Label className='text-sm text-red-700'>{messages[signinStatus]}</Label>
                     )}

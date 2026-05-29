@@ -456,7 +456,7 @@ export default function MemberSection() {
                                 <TableHead className='h-8 p-0 align-middle text-center text-gray-600'>직책</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-center text-gray-600'>이름</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>상태</TableHead>
-                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3'>마지막 변동</TableHead>
+                                <TableHead className='h-8 p-0 align-middle text-left text-gray-600 pl-3.5'>마지막 변동</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-gray-600 text-center whitespace-nowrap'>관리 메뉴</TableHead>
                                 <TableHead className='h-8 p-0 align-middle text-right text-gray-600 pr-3'>표시 순서</TableHead>
                             </TableRow>
@@ -803,7 +803,7 @@ export default function MemberSection() {
                         <AlertDialogTitle>프로필 사진 변경</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div>
-                                <p>월패드에 기본 이모지 대신 내 GitHub 계정의 프로필 사진을 불러와 표시할 수 있어요.</p>
+                                <p>출석부에 기본 이모지 대신 내 GitHub 계정의 프로필 사진을 불러와 표시할 수 있어요.</p>
                                 <p>둘 다 설정된 경우 GitHub 프로필 사진이 우선적으로 표시돼요.</p>
                             </div>
                         </AlertDialogDescription>

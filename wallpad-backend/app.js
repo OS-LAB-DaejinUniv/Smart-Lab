@@ -38,39 +38,50 @@ app.use(extractToken);
 // init wallpad
 (async () => {
 	// find device which matched with configured device number.
+	// Missing/unconfigured readers degrade gracefully: the service runs without
+	// a serial connection so admins can still log in, manage members, and pick
+	// a serial number from /wallpad/usb-devices once the reader is plugged in.
 	const deviceList = await autoDetect().list();
-	const isDeviceFound = deviceList.find(device => {
-		if (device.serialNumber == config.arduino.deviceSerial) {
-			console.log(`Found id card reader with serial ${config.arduino.deviceSerial}: ${device.path}`);
-			config.arduino.path = device.path;
-			return true;
-		}
-	});
+	let arduino = null;
+	const configuredSerial = config.arduino.deviceSerial;
+	const matchedDevice = configuredSerial
+		? deviceList.find(d => d.serialNumber == configuredSerial)
+		: null;
 
-	if (!isDeviceFound) {
-		console.error(`Device with serial "${config.arduino.deviceSerial}" not found.`);
-		const arduinoCandidates = deviceList.filter(device => device.serialNumber);
-		if (arduinoCandidates.length === 0) {
-			console.error('No arduino devices are currently connected.');
+	if (matchedDevice) {
+		console.log(`Found id card reader with serial ${configuredSerial}: ${matchedDevice.path}`);
+		config.arduino.path = matchedDevice.path;
+	} else {
+		if (!configuredSerial) {
+			console.warn('[arduino] No deviceSerial configured — running without a card reader.');
 		} else {
-			console.error('Currently connected arduino devices:');
-			arduinoCandidates.forEach(device => {
-				console.error(`  - path=${device.path}, serialNumber=${device.serialNumber}`);
+			console.warn(`[arduino] Device with serial "${configuredSerial}" not found — running without a card reader.`);
+		}
+		const candidates = deviceList.filter(d => d.serialNumber);
+		if (candidates.length === 0) {
+			console.warn('[arduino] No USB serial devices are currently connected.');
+		} else {
+			console.warn('[arduino] Currently connected USB serial devices:');
+			candidates.forEach(d => {
+				console.warn(`  - path=${d.path}, serialNumber=${d.serialNumber}`);
 			});
 		}
-		throw new Error('deviceNotFound');
 	}
 
 	// create depending instances
 	const db = new DB(dbconn);
-	const arduino = new SerialPort(config.arduino);
+	if (matchedDevice) {
+		arduino = new SerialPort(config.arduino);
+	}
 	const io = new Server(server, config.socketioConf);
 
 	// create Wallpad instance
 	const wallpad = new Wallpad(db, arduino, io);
 
 	// passes all serialport events to wallpad
-	arduino.on('data', data => wallpad.serialEventHandler(data));
+	if (arduino) {
+		arduino.on('data', data => wallpad.serialEventHandler(data));
+	}
 
 	server.listen(config.socketioConf.port, "0.0.0.0", () => {
 		console.log(`Socket.IO server started on port ${config.socketioConf.port}.`);
@@ -159,6 +170,32 @@ app.use(extractToken);
 	app.use('/wallpad/management/extension', extensionRoutes());
 
 
+	// Lists USB serial devices currently visible to the OS.
+	app.get('/wallpad/usb-devices', async (req, res) => {
+		if (!req.authed) return res.status(401).json({ status: false });
+		try {
+			const list = await autoDetect().list();
+			const devices = list
+				.filter(d => d.serialNumber)
+				.map(d => ({
+					path: d.path,
+					serialNumber: d.serialNumber,
+					manufacturer: d.manufacturer || null,
+					productId: d.productId || null,
+					vendorId: d.vendorId || null,
+				}));
+			res.json({
+				status: true,
+				devices,
+				configured: config.arduino.deviceSerial || '',
+				connected: arduino !== null,
+			});
+		} catch (err) {
+			console.error('[usb-devices]', err);
+			res.status(500).json(errorResponse(err));
+		}
+	});
+
 	// Card test mode API: waits for card and returns UUID
 	// Uses Server-Sent Events (SSE) to keep connection alive and handle disconnect
 	app.get('/wallpad/card/test', (req, res) => {
@@ -175,6 +212,11 @@ app.use(extractToken);
 			}
 		} catch (err) {
 			return res.status(401).json({ status: false, reason: 'Invalid token' });
+		}
+
+		// No card reader attached — fail fast rather than hanging the SSE stream.
+		if (!arduino) {
+			return res.status(503).json({ status: false, reason: 'NoCardReader' });
 		}
 
 		// Check if card test mode is already active
@@ -308,7 +350,9 @@ app.use(extractToken);
 			}
 
 			const { arduinoDeviceSerial } = req.body;
-			if (arduinoDeviceSerial !== undefined && typeof arduinoDeviceSerial === 'string' && arduinoDeviceSerial.trim()) {
+			if (arduinoDeviceSerial !== undefined && typeof arduinoDeviceSerial === 'string') {
+				// Empty string is allowed and means "no reader configured" — the
+				// backend will boot without a serial connection in that state.
 				config.arduino.deviceSerial = arduinoDeviceSerial.trim();
 				runtimeConfig.save();
 			}
